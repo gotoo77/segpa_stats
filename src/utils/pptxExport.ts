@@ -233,11 +233,11 @@ export async function exportPresentationToPptx(session: SessionData, settings: P
       { text: est.bassin || 'Douaisis', options: { color: 'cbd5e1', fontSize: 9, align: 'center' } },
       { text: String(est.effectifClasse), options: { color: 'f59e0b', fontSize: 10, align: 'center', bold: true } },
       { text: String(est.dnb.inscrits), options: { color: 'ffffff', fontSize: 10, align: 'center' } },
-      { text: `${comp.tauxPresentation}%`, options: { color: '38bdf8', fontSize: 10, align: 'center', bold: true } },
+      { text: est.dnbComplete === false ? 'N.R.' : `${comp.tauxPresentation}%`, options: { color: '38bdf8', fontSize: 10, align: 'center', bold: true } },
       { text: String(est.dnb.admis), options: { color: '34d399', fontSize: 10, align: 'center', bold: true } },
       { text: String(est.dnb.refuses), options: { color: 'cbd5e1', fontSize: 10, align: 'center' } },
       { text: `${comp.totalMentions}`, options: { color: 'fbbf24', fontSize: 10, align: 'center' } },
-      { text: `${comp.tauxPresents}%`, options: { color: '60a5fa', fontSize: 11, align: 'center', bold: true } },
+      { text: est.dnbComplete === false ? 'N.R.' : `${comp.tauxPresents}%`, options: { color: '60a5fa', fontSize: 11, align: 'center', bold: true } },
     ]);
   });
 
@@ -335,7 +335,7 @@ export async function exportPresentationToPptx(session: SessionData, settings: P
       { text: String(est.cfg.inscrits), options: { color: 'ffffff', fontSize: 10, align: 'center' } },
       { text: String(est.cfg.admis), options: { color: '34d399', fontSize: 10, align: 'center', bold: true } },
       { text: String(est.cfg.refuses), options: { color: 'cbd5e1', fontSize: 10, align: 'center' } },
-      { text: `${comp.tauxPresents}%`, options: { color: '2dd4bf', fontSize: 11, align: 'center', bold: true } },
+      { text: est.cfgComplete === false ? 'N.R.' : `${comp.tauxPresents}%`, options: { color: '2dd4bf', fontSize: 11, align: 'center', bold: true } },
     ]);
   });
 

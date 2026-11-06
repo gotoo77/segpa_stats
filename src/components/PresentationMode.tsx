@@ -236,6 +236,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
           <button type="button" className="text-blue-300 underline" onClick={() => { updateSettings(DEFAULT_PRESENTATION_SETTINGS); setSlidePosition(0); }}>Restaurer les réglages par défaut</button>
         </div>
       )}
+      <p className="sr-only">Couverture : DNB {stats.dnbRenseignes}/{stats.totalEtablissements}, CFG {stats.cfgRenseignes}/{stats.totalEtablissements}.</p>
       {/* Contenu de la diapositive active (capturable en haute fidélité) */}
       <div
         ref={slideRef}
@@ -288,7 +289,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
                   <h3 className="text-xl font-bold text-blue-300">DNB Professionnel</h3>
                   <TrendingUp className="w-6 h-6 text-blue-400" />
                 </div>
-                <div className="text-6xl font-black text-white">{stats.dnb.tauxMoyenPresents}%</div>
+                <div className="text-6xl font-black text-white">{stats.dnbRenseignes ? stats.dnb.tauxMoyenPresents + '%' : 'N.R.'}</div>
                 <div className="text-sm text-slate-400 mt-2">de réussite sur les candidats présents</div>
                 <div className="mt-6 pt-4 border-t border-slate-800 space-y-2 text-sm">
                   <div className="flex justify-between text-slate-300">
@@ -311,7 +312,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
                   <h3 className="text-xl font-bold text-teal-300">Certificat de Formation Générale</h3>
                   <CheckCircle2 className="w-6 h-6 text-teal-400" />
                 </div>
-                <div className="text-6xl font-black text-white">{stats.cfg.tauxMoyenPresents}%</div>
+                <div className="text-6xl font-black text-white">{stats.cfgRenseignes ? stats.cfg.tauxMoyenPresents + '%' : 'N.R.'}</div>
                 <div className="text-sm text-slate-400 mt-2">de réussite sur l'effectif total</div>
                 <div className="mt-6 pt-4 border-t border-slate-800 space-y-2 text-sm">
                   <div className="flex justify-between text-slate-300">
@@ -344,7 +345,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
               </div>
               <div className="bg-blue-900/60 border border-blue-600 px-4 py-2 rounded-xl text-right">
                 <span className="text-xs text-blue-300 block">Moyenne Réussite</span>
-                <span className="text-2xl font-bold text-white">{stats.dnb.tauxMoyenPresents}%</span>
+                <span className="text-2xl font-bold text-white">{stats.dnbRenseignes ? stats.dnb.tauxMoyenPresents + '%' : 'N.R.'}</span>
               </div>
             </div>
 
@@ -361,14 +362,14 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
                         </div>
                       </div>
                       <div className="my-2 flex items-baseline gap-2">
-                        <span className={`text-2xl font-black ${comp.tauxPresents >= 85 ? 'text-emerald-400' : comp.tauxPresents >= 70 ? 'text-blue-400' : 'text-amber-400'}`}>
-                          {comp.tauxPresents}%
+                        <span className={`text-2xl font-black ${est.dnbComplete === false ? 'text-slate-400' : comp.tauxPresents >= 85 ? 'text-emerald-400' : comp.tauxPresents >= 70 ? 'text-blue-400' : 'text-amber-400'}`}>
+                          {est.dnbComplete === false ? 'N.R.' : comp.tauxPresents + '%'}
                         </span>
                         <span className="text-[10px] text-slate-400">({est.dnb.admis}/{est.dnb.inscrits})</span>
                       </div>
                       <div className="text-[10px] text-slate-400 flex justify-between border-t border-slate-900 pt-1 mt-1">
                         <span>Présentés :</span>
-                        <strong className="text-indigo-400">{comp.tauxPresentation}% classe</strong>
+                        <strong className="text-indigo-400">{est.dnbComplete === false ? 'N.R.' : comp.tauxPresentation + '%'} classe</strong>
                       </div>
                     </div>
                   );
@@ -427,7 +428,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
               </div>
               <div className="bg-teal-900/60 border border-teal-600 px-4 py-2 rounded-xl text-right">
                 <span className="text-xs text-teal-300 block">Taux Réseau</span>
-                <span className="text-2xl font-bold text-white">{stats.cfg.tauxMoyenPresents}%</span>
+                <span className="text-2xl font-bold text-white">{stats.cfgRenseignes ? stats.cfg.tauxMoyenPresents + '%' : 'N.R.'}</span>
               </div>
             </div>
 
@@ -444,13 +445,13 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
                         </div>
                       </div>
                       <div className="my-2 flex items-baseline gap-2">
-                        <span className={`text-2xl font-black ${comp.tauxPresents === 100 ? 'text-emerald-400' : 'text-teal-300'}`}>
-                          {comp.tauxPresents}%
+                        <span className={`text-2xl font-black ${est.cfgComplete === false ? 'text-slate-400' : comp.tauxPresents === 100 ? 'text-emerald-400' : 'text-teal-300'}`}>
+                          {est.cfgComplete === false ? 'N.R.' : comp.tauxPresents + '%'}
                         </span>
                         <span className="text-[10px] text-slate-400">{est.cfg.admis}/{est.cfg.inscrits}</span>
                       </div>
                       <div className="text-[10px] text-slate-500">
-                        {comp.tauxPresents === 100 ? '⭐ 100% de réussite' : `${est.cfg.refuses} non admis`}
+                        {est.cfgComplete === false ? 'Résultats non renseignés' : comp.tauxPresents === 100 ? '⭐ 100% de réussite' : `${est.cfg.refuses} non admis`}
                       </div>
                     </div>
                   );
@@ -477,7 +478,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
               <div className="flex items-start gap-3">
                 <span className="w-6 h-6 rounded-full bg-blue-900/60 text-blue-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">✓</span>
                 <p>
-                  <strong>DNB Professionnel :</strong> Un taux de présentation de <strong>{stats.tauxMoyenPresentationDnb}%</strong> et une réussite de <strong>{stats.dnb.tauxMoyenPresents}%</strong>, avec de belles disparités positives selon les projets d'établissement.
+                  <strong>DNB Professionnel :</strong> Un taux de présentation de <strong>{stats.tauxMoyenPresentationDnb}%</strong> et une réussite de <strong>{stats.dnbRenseignes ? stats.dnb.tauxMoyenPresents + '%' : 'N.R.'}</strong>, avec de belles disparités positives selon les projets d'établissement.
                 </p>
               </div>
               <div className="flex items-start gap-3">
