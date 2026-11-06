@@ -22,14 +22,14 @@ const BASE_ESTABLISHMENTS_CONFIG = [
 ];
 
 // =============================================================================
-// 1. SESSION 2026 (SESSION OFFICIELLE EN COURS)
+// 1. SESSION 2026 (DONNÉES D'EXEMPLE FICTIVES)
 // =============================================================================
 export const session2026: SessionData = {
   id: 'session-2026',
   year: 'Session 2026',
   bassinName: "Bassin d'éducation et de formation SEGPA du Douaisis",
   regions: DEFAULT_REGIONS,
-  notes: 'Session 2026 : Résultats officiels consolidés du Douaisis et Cambrésis.',
+  notes: 'Données fictives de démonstration : ne pas présenter comme résultats officiels.',
   lastUpdated: new Date().toISOString(),
   submissions: [
     {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { SessionData, Establishment, ColleagueSubmission, COLLEGE_PALETTE, DEFAULT_REGIONS } from './types';
-import { initialSessionData } from './data/mockData';
+import { initialSessionData, DEFAULT_SESSIONS } from './data/mockData';
 import { Header } from './components/Header';
 import { TableView } from './components/TableView';
 import { DashboardView } from './components/DashboardView';
@@ -14,6 +14,8 @@ import { RegionManageModal } from './components/RegionManageModal';
 import { ShieldCheck, Accessibility } from 'lucide-react';
 
 const STORAGE_KEY = 'statsegpa_session_v1';
+const SESSIONS_KEY = 'statsegpa_sessions_v1';
+const SELECTED_YEAR_KEY = 'statsegpa_selected_year_v1';
 const THEME_KEY = 'statsegpa_theme';
 const BASSIN_KEY = 'statsegpa_bassin_filter';
 
@@ -60,42 +62,55 @@ export const App: React.FC = () => {
     } catch {}
   }, [bassinFilter]);
 
-  // Session
-  const [session, setSession] = useState<SessionData>(() => {
+  // Chaque année possède sa session indépendante. Migration douce depuis l'ancien stockage mono-session.
+  const [sessions, setSessions] = useState<Record<string, SessionData>>(() => {
+    const initial: Record<string, SessionData> = { ...DEFAULT_SESSIONS };
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(SESSIONS_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.establishments && parsed.establishments.length > 0) {
-          parsed.establishments = parsed.establishments.map((e: any, idx: number) => ({
-            ...e,
-            bassin: e.bassin || (idx >= 11 ? 'Cambrésis' : 'Douaisis'),
-            effectifClasse: e.effectifClasse ?? e.cfg?.inscrits ?? 14,
-            color: e.color || COLLEGE_PALETTE[idx % COLLEGE_PALETTE.length],
-          }));
-          return parsed;
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          for (const [year, data] of Object.entries(parsed)) {
+            const candidate = data as SessionData;
+            if (/^20\d{2}$/.test(year) && candidate && Array.isArray(candidate.establishments)) initial[year] = candidate;
+          }
+        }
+      } else {
+        const old = localStorage.getItem(STORAGE_KEY);
+        if (old) {
+          const candidate: SessionData = JSON.parse(old);
+          if (Array.isArray(candidate?.establishments)) {
+            const year = candidate.year.match(/20\d{2}/)?.[0] || '2026';
+            initial[year] = candidate;
+          }
         }
       }
-    } catch (e) {
-      console.warn('Erreur lors du chargement des données locales:', e);
-    }
-    return initialSessionData;
+    } catch (error) { console.warn('Sessions locales illisibles : retour aux exemples.', error); }
+    return initial;
   });
-
+  const [activeYear, setActiveYear] = useState(() => {
+    try { const saved = localStorage.getItem(SELECTED_YEAR_KEY); if (saved && sessions[saved]) return saved; } catch {}
+    return '2026';
+  });
+  const session = sessions[activeYear] || initialSessionData;
+  const setSession: React.Dispatch<React.SetStateAction<SessionData>> = (value) => {
+    setSessions((prev) => {
+      const current = prev[activeYear] || initialSessionData;
+      const next = typeof value === 'function' ? value(current) : value;
+      return { ...prev, [activeYear]: next };
+    });
+  };
+  useEffect(() => {
+    try { localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions)); }
+    catch (error) { console.error('Sauvegarde des sessions impossible', error); }
+  }, [sessions]);
+  useEffect(() => { try { localStorage.setItem(SELECTED_YEAR_KEY, activeYear); } catch {} }, [activeYear]);
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'table' | 'review' | 'presentation' | 'print'>('dashboard');
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [isTeacherFormOpen, setIsTeacherFormOpen] = useState(false);
   const [isRegionManagerOpen, setIsRegionManagerOpen] = useState(false);
   const [editingEstablishment, setEditingEstablishment] = useState<Establishment | null>(null);
 
-  // Sauvegarde automatique dans le LocalStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-    } catch (e) {
-      console.error('Erreur lors de la sauvegarde locale:', e);
-    }
-  }, [session]);
 
   // Session filtrée selon le bassin actif (Douaisis, Cambrésis, ou Toute région personnalisée, ou Tous)
   const activeSession = useMemo<SessionData>(() => {
@@ -103,14 +118,36 @@ export const App: React.FC = () => {
     const count = session.establishments.filter((e) => e.bassin === bassinFilter).length;
     return {
       ...session,
-      bassinName: `Bassin ${bassinFilter} (${count} collège${count > 1 ? 's' : ''})`,
+      bassinName: `Bassin d'éducation et de formation SEGPA du ${bassinFilter} (${count} collège${count > 1 ? 's' : ''})`,
       establishments: session.establishments.filter((e) => e.bassin === bassinFilter),
     };
   }, [session, bassinFilter]);
 
+  const handleCreateYear = () => {
+    const value = window.prompt('Année de la nouvelle session (ex. 2027) :');
+    if (value === null) return;
+    const year = value.trim();
+    if (!/^20\d{2}$/.test(year)) { alert('Indiquez une année de quatre chiffres commençant par 20.'); return; }
+    if (sessions[year]) { setActiveYear(year); return; }
+    const newSession: SessionData = {
+      id: `session-${year}`, year: `Session ${year}`, bassinName: session.bassinName,
+      regions: (session.regions || DEFAULT_REGIONS).map((r) => ({ ...r })),
+      establishments: [], submissions: [], notes: 'Nouvelle session à compléter',
+      lastUpdated: new Date().toISOString(),
+    };
+    setSessions((prev) => ({ ...prev, [year]: newSession }));
+    setActiveYear(year);
+    setBassinFilter('all');
+    setCurrentTab('table');
+  };
+
   const handleResetData = () => {
     if (confirm("Voulez-vous recharger l'exemple officiel des collèges du Douaisis et du Cambrésis ?")) {
-      setSession(initialSessionData);
+      setSession(DEFAULT_SESSIONS[activeYear] || {
+        id: `session-${activeYear}`, year: `Session ${activeYear}`, bassinName: session.bassinName,
+        regions: session.regions || DEFAULT_REGIONS, establishments: [], submissions: [],
+        lastUpdated: new Date().toISOString(),
+      });
     }
   };
 
@@ -139,6 +176,10 @@ export const App: React.FC = () => {
         setCurrentTab={setCurrentTab}
         session={session}
         setSession={setSession}
+        availableYears={Object.keys(sessions).sort((x, y) => Number(y) - Number(x))}
+        activeYear={activeYear}
+        onChangeYear={setActiveYear}
+        onCreateYear={handleCreateYear}
         bassinFilter={bassinFilter}
         setBassinFilter={setBassinFilter}
         isDark={isDark}

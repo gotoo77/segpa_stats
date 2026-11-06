@@ -33,6 +33,10 @@ interface HeaderProps {
   onOpenTeacherForm: () => void;
   onOpenRegionManager: () => void;
   onResetData: () => void;
+  availableYears: string[];
+  activeYear: string;
+  onChangeYear: (year: string) => void;
+  onCreateYear: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -48,6 +52,10 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenTeacherForm,
   onOpenRegionManager,
   onResetData,
+  availableYears,
+  activeYear,
+  onChangeYear,
+  onCreateYear,
 }) => {
   const pendingSubmissions = (session.submissions || []).filter((s) => s.status === 'pending').length;
 
@@ -76,9 +84,9 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
                 <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 font-medium border border-emerald-200 dark:border-emerald-800" title="Données enregistrées localement, sans synchronisation automatique">
                   <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-                  100% RGPD
+                  Stockage local
                 </span>
-                <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium border border-slate-200 dark:border-slate-700" title="Conforme W3C, RGAA 4.1.2 et WCAG 2.1 AA">
+                <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium border border-slate-200 dark:border-slate-700" title="Accessibilité en cours de vérification">
                   <Accessibility className="w-3 h-3 text-blue-600 dark:text-blue-400" aria-hidden="true" />
                   Accessibilité
                 </span>
@@ -95,14 +103,15 @@ export const Header: React.FC<HeaderProps> = ({
                 <span aria-hidden="true">•</span>
                 <div className="flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
-                  <input
-                    type="text"
-                    aria-label="Session d'examen"
-                    value={session.year}
-                    onChange={(e) => setSession({ ...session, year: e.target.value })}
-                    className="font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 px-1 py-0.5 rounded transition border border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:bg-white dark:focus:bg-slate-800 focus:border-blue-400 focus:outline-hidden w-28"
-                    title="Cliquer pour changer la session"
-                  />
+                  <select
+                    aria-label="Choisir une session annuelle"
+                    value={activeYear}
+                    onChange={(e) => onChangeYear(e.target.value)}
+                    className="font-semibold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1 py-0.5"
+                  >
+                    {availableYears.map((year) => <option key={year} value={year}>Session {year}</option>)}
+                  </select>
+                  <button type="button" onClick={onCreateYear} title="Créer une nouvelle session" aria-label="Créer une nouvelle session" className="text-blue-700 dark:text-blue-300 font-bold px-1 rounded hover:bg-blue-50 dark:hover:bg-slate-700">+</button>
                 </div>
               </div>
             </div>

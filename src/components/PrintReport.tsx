@@ -75,7 +75,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
       <div
         className={`p-8 rounded-3xl border shadow-sm space-y-6 print:p-0 print:border-none print:shadow-none print:bg-white print:text-black transition-colors ${
           isPaper
-            ? 'bg-white text-slate-900 border-slate-200'
+            ? 'report-paper bg-white text-slate-900 border-slate-200'
             : 'bg-slate-900 text-slate-100 border-slate-800'
         }`}
       >

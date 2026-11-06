@@ -35,3 +35,13 @@
     color: black !important;
   }
 }
+
+/* L'aperçu papier garde une encre lisible, indépendamment du thème global. */
+.report-paper { color-scheme: light; }
+.report-paper table tbody tr { color: #0f172a; }
+.report-paper table thead { color: #0f172a; }
+.report-paper table tfoot { color: #020617; }
+@media print {
+  .report-paper { background: #fff !important; color: #0f172a !important; }
+  .report-paper * { color: #0f172a !important; }
+}
