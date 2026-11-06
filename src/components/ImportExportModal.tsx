@@ -43,7 +43,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
     try {
       setImportStatus('Lecture du fichier en cours...');
       setIsError(false);
-      const establishments = await parseExcelOrCsvFile(file);
+      const establishments = await parseExcelOrCsvFile(file, session.regions?.[0]?.name || 'Douaisis');
 
       if (establishments.length === 0) {
         throw new Error("Aucune ligne d'établissement valide trouvée dans le fichier.");
