@@ -145,8 +145,8 @@ export async function exportPresentationToPptx(session: SessionData, settings: P
   // --------------------------------------------------------------------------
   // SLIDE 2 : Les Chiffres Clés du Bassin
   // --------------------------------------------------------------------------
-  if (settings.enabledSlides.kpis) {
   }
+  if (settings.enabledSlides.kpis) {
 
   const slide2 = pptx.addSlide();
   slide2.background = { color: '0f172a' };
@@ -203,8 +203,8 @@ export async function exportPresentationToPptx(session: SessionData, settings: P
   // --------------------------------------------------------------------------
   // SLIDE 3 : Tableau Comparatif DNB Pro
   // --------------------------------------------------------------------------
-  if (settings.enabledSlides.dnb) {
   }
+  if (settings.enabledSlides.dnb) {
 
   const slide3 = pptx.addSlide();
   slide3.background = { color: '0f172a' };
@@ -252,8 +252,8 @@ export async function exportPresentationToPptx(session: SessionData, settings: P
   // --------------------------------------------------------------------------
   // SLIDE 4 : Focus Mentions DNB Pro
   // --------------------------------------------------------------------------
-  if (settings.enabledSlides.mentions) {
   }
+  if (settings.enabledSlides.mentions) {
 
   const slide4 = pptx.addSlide();
   slide4.background = { color: '0f172a' };
@@ -305,8 +305,8 @@ export async function exportPresentationToPptx(session: SessionData, settings: P
   // --------------------------------------------------------------------------
   // SLIDE 5 : CFG Détail
   // --------------------------------------------------------------------------
-  if (settings.enabledSlides.cfg) {
   }
+  if (settings.enabledSlides.cfg) {
 
   const slide5 = pptx.addSlide();
   slide5.background = { color: '0f172a' };
@@ -350,8 +350,8 @@ export async function exportPresentationToPptx(session: SessionData, settings: P
   // --------------------------------------------------------------------------
   // SLIDE 6 : Synthèse et Perspectives
   // --------------------------------------------------------------------------
-  if (settings.enabledSlides.comparison) {
   }
+  if (settings.enabledSlides.comparison) {
 
   const slide6 = pptx.addSlide();
   slide6.background = { color: '0f172a' };
