@@ -11,7 +11,7 @@ import {
   AlertCircle,
   Check
 } from 'lucide-react';
-import { Establishment, SessionData } from '../types';
+import { Establishment, SessionData, DEFAULT_REGIONS, COLLEGE_PALETTE } from '../types';
 import { exportSessionToExcel, downloadEmptyTemplate, parseExcelOrCsvFile } from '../utils/excel';
 import { DEFAULT_SESSIONS } from '../data/mockData';
 import { createCompleteBackup, parseCompleteBackup, validateSession } from '../utils/backup';
@@ -67,10 +67,20 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
     if (!excelPreview) return;
     if (!window.confirm('Remplacer les ' + session.establishments.length + ' établissements de ' + session.year +
       ' par les ' + excelPreview.establishments.length + ' établissements importés ? Les autres années resteront intactes.')) return;
-    setSession(prev => ({
-      ...prev, establishments: excelPreview.establishments, dataOrigin: 'user',
-      lastUpdated: new Date().toISOString(),
-    }));
+    setSession(prev => {
+      const regions = [...(prev.regions?.length ? prev.regions : DEFAULT_REGIONS)];
+      const names = new Set(regions.map(r => r.name));
+      for (const est of excelPreview.establishments) {
+        const name = est.bassin?.trim();
+        if (name && !names.has(name)) {
+          regions.push({ id: 'imported-' + regions.length, name,
+            color: COLLEGE_PALETTE[regions.length % COLLEGE_PALETTE.length] });
+          names.add(name);
+        }
+      }
+      return { ...prev, regions, establishments: excelPreview.establishments,
+        dataOrigin: 'user', lastUpdated: new Date().toISOString() };
+    });
     setImportStatus('Import Excel confirmé dans ' + session.year);
     setIsError(false);
     setExcelPreview(null);

@@ -14,6 +14,7 @@ import { EstablishmentEditModal } from './components/EstablishmentEditModal';
 import { TeacherSubmissionModal } from './components/TeacherSubmissionModal';
 import { RegionManageModal } from './components/RegionManageModal';
 import { ShieldCheck, Accessibility } from 'lucide-react';
+import { loadStoredSessions } from './utils/sessionStorage';
 
 const STORAGE_KEY = 'statsegpa_session_v1';
 const SESSIONS_KEY = 'statsegpa_sessions_v1';
@@ -64,48 +65,53 @@ export const App: React.FC = () => {
     } catch {}
   }, [bassinFilter]);
 
-  // Chaque année possède sa session indépendante. Migration douce depuis l'ancien stockage mono-session.
-  const [sessions, setSessions] = useState<Record<string, SessionData>>(() => {
-    const initial: Record<string, SessionData> = { ...DEFAULT_SESSIONS };
+  // Une sauvegarde existante est l'autorité ; les exemples ne sont chargés qu'au premier démarrage.
+  const [initialStorage] = useState(() => {
     try {
-      const saved = localStorage.getItem(SESSIONS_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          for (const [year, data] of Object.entries(parsed)) {
-            const candidate = data as SessionData;
-            if (/^20\d{2}$/.test(year) && candidate && Array.isArray(candidate.establishments)) initial[year] = candidate;
-          }
-        }
-      } else {
-        const old = localStorage.getItem(STORAGE_KEY);
-        if (old) {
-          const candidate: SessionData = JSON.parse(old);
-          if (Array.isArray(candidate?.establishments)) {
-            const year = candidate.year.match(/20\d{2}/)?.[0] || '2026';
-            initial[year] = candidate;
-          }
-        }
-      }
-    } catch (error) { console.warn('Sessions locales illisibles : retour aux exemples.', error); }
-    return initial;
+      return {
+        sessions: loadStoredSessions(
+          localStorage.getItem(SESSIONS_KEY),
+          localStorage.getItem(STORAGE_KEY),
+          DEFAULT_SESSIONS,
+        ),
+        readError: null as string | null,
+      };
+    } catch (error) {
+      console.error('Impossible de lire les sessions sauvegardées', error);
+      return {
+        sessions: { ...DEFAULT_SESSIONS },
+        readError: 'Les sessions stockées sont illisibles : elles n’ont pas été écrasées. Restaurez une sauvegarde JSON avant toute saisie.',
+      };
+    }
   });
+  const [sessions, setSessions] = useState<Record<string, SessionData>>(initialStorage.sessions);
+  const [storageReadError, setStorageReadError] = useState<string | null>(initialStorage.readError);
+  const [storageWriteError, setStorageWriteError] = useState(false);
   const [activeYear, setActiveYear] = useState(() => {
-    try { const saved = localStorage.getItem(SELECTED_YEAR_KEY); if (saved && sessions[saved]) return saved; } catch {}
-    return '2026';
+    try {
+      const saved = localStorage.getItem(SELECTED_YEAR_KEY);
+      if (saved && sessions[saved]) return saved;
+    } catch {}
+    return sessions['2026'] ? '2026' : Object.keys(sessions).sort()[0];
   });
-  const session = sessions[activeYear] || initialSessionData;
+  const session = sessions[activeYear] || Object.values(sessions)[0] || initialSessionData;
   const setSession: React.Dispatch<React.SetStateAction<SessionData>> = (value) => {
     setSessions((prev) => {
-      const current = prev[activeYear] || initialSessionData;
+      const current = prev[activeYear] || session;
       const next = typeof value === 'function' ? value(current) : value;
       return { ...prev, [activeYear]: next };
     });
   };
   useEffect(() => {
-    try { localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions)); }
-    catch (error) { console.error('Sauvegarde des sessions impossible', error); }
-  }, [sessions]);
+    if (storageReadError) return; // Ne jamais écraser une sauvegarde illisible.
+    try {
+      localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+      setStorageWriteError(false);
+    } catch (error) {
+      console.error('Sauvegarde locale impossible', error);
+      setStorageWriteError(true);
+    }
+  }, [sessions, storageReadError]);
   useEffect(() => { try { localStorage.setItem(SELECTED_YEAR_KEY, activeYear); } catch {} }, [activeYear]);
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'history' | 'table' | 'review' | 'presentation' | 'print'>('dashboard');
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
@@ -172,6 +178,11 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans text-slate-800 dark:text-slate-100 transition-colors duration-200">
+      {(storageReadError || storageWriteError) && (
+        <div role="alert" className="p-4 bg-red-50 dark:bg-red-950 border-b-2 border-red-500 text-red-900 dark:text-red-100 font-bold text-sm">
+          {storageReadError || 'Sauvegarde locale impossible : les dernières modifications risquent d’être perdues. Exportez immédiatement une sauvegarde JSON.'}
+        </div>
+      )}
       {/* En-tête de navigation avec sélecteur de bassin */}
       <Header
         currentTab={currentTab}
@@ -258,6 +269,7 @@ export const App: React.FC = () => {
         activeYear={activeYear}
         onRestoreAll={(newSessions, year) => {
           setSessions(newSessions);
+          setStorageReadError(null);
           setActiveYear(year);
           setBassinFilter('all');
         }}

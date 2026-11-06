@@ -1,4 +1,6 @@
-import type { SessionData } from '../types';
+import type { SessionData, DnbData, CfgData } from '../types';
+import { computeDnb, computeCfg } from './calculations';
+import { collectDataIssues } from './dataIntegrity';
 
 export interface CompleteBackup {
   format: 'statsegpa-backup';
@@ -14,27 +16,58 @@ function object(value: unknown): value is Record<string, unknown> {
 function natural(value: unknown): boolean {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
+function optionalString(value: unknown): boolean {
+  return value === undefined || typeof value === 'string';
+}
+function validCfg(value: unknown): value is CfgData {
+  return object(value) && natural(value.inscrits) && natural(value.admis) &&
+    natural(value.refuses) && (value.presents === undefined || natural(value.presents));
+}
+function validDnb(value: unknown): value is DnbData {
+  return validCfg(value) && object(value.mentions) &&
+    natural(value.mentions.ab) && natural(value.mentions.b) && natural(value.mentions.tb);
+}
 export function validateSession(value: unknown): value is SessionData {
   if (!object(value) || typeof value.id !== 'string' || typeof value.year !== 'string' ||
       typeof value.bassinName !== 'string' || typeof value.lastUpdated !== 'string' ||
-      !Array.isArray(value.establishments)) return false;
+      !Array.isArray(value.establishments) || !optionalString(value.notes) ||
+      (value.dataOrigin !== undefined && value.dataOrigin !== 'demo' && value.dataOrigin !== 'user'))
+    return false;
+
   if (value.regions !== undefined && (!Array.isArray(value.regions) ||
-      !value.regions.every(r => object(r) && typeof r.id === 'string' && typeof r.name === 'string' && typeof r.color === 'string'))) return false;
-  if (value.submissions !== undefined && !Array.isArray(value.submissions)) return false;
+      !value.regions.every(r => object(r) && typeof r.id === 'string' &&
+        typeof r.name === 'string' && typeof r.color === 'string'))) return false;
   const ids = new Set<string>();
-  for (const e of value.establishments) {
-    if (!object(e) || typeof e.id !== 'string' || !e.id.trim() ||
-        ids.has(e.id) || typeof e.name !== 'string' || !e.name.trim() ||
-        !natural(e.effectifClasse) || !object(e.dnb) || !object(e.cfg)) return false;
-    ids.add(e.id);
-    for (const item of [e.dnb, e.cfg]) {
-      if (!natural(item.inscrits) || !natural(item.admis) || !natural(item.refuses) ||
-          (item.presents !== undefined && !natural(item.presents))) return false;
+  for (const est of value.establishments) {
+    if (!object(est) || typeof est.id !== 'string' || !est.id.trim() ||
+        ids.has(est.id) || typeof est.name !== 'string' || !est.name.trim() ||
+        !natural(est.effectifClasse) || !optionalString(est.city) ||
+        !optionalString(est.bassin) || !optionalString(est.color) ||
+        !validDnb(est.dnb) || !validCfg(est.cfg) ||
+        (est.dnbComplete !== undefined && typeof est.dnbComplete !== 'boolean') ||
+        (est.cfgComplete !== undefined && typeof est.cfgComplete !== 'boolean')) return false;
+    ids.add(est.id);
+  }
+  if (collectDataIssues(value.establishments as SessionData['establishments']).length > 0) return false;
+
+  if (value.submissions !== undefined) {
+    if (!Array.isArray(value.submissions)) return false;
+    const submissionIds = new Set<string>();
+    for (const sub of value.submissions) {
+      if (!object(sub) || typeof sub.id !== 'string' || !sub.id.trim() ||
+          submissionIds.has(sub.id) ||
+          typeof sub.establishmentName !== 'string' || !sub.establishmentName.trim() ||
+          typeof sub.submittedBy !== 'string' || !sub.submittedBy.trim() ||
+          typeof sub.submittedAt !== 'string' ||
+          !['pending', 'approved', 'modified'].includes(String(sub.status)) ||
+          !optionalString(sub.city) || !optionalString(sub.bassin) ||
+          !optionalString(sub.color) || !optionalString(sub.teacherComment) ||
+          !optionalString(sub.directorNotes) || !natural(sub.effectifClasse) ||
+          !validDnb(sub.dnb) || !validCfg(sub.cfg)) return false;
+      submissionIds.add(sub.id);
+      if (computeDnb(sub.dnb, sub.effectifClasse as number).errors.length ||
+          computeCfg(sub.cfg, sub.effectifClasse as number).errors.length) return false;
     }
-    if (!object(e.dnb.mentions) || !natural(e.dnb.mentions.ab) ||
-        !natural(e.dnb.mentions.b) || !natural(e.dnb.mentions.tb)) return false;
-    if (e.dnbComplete !== undefined && typeof e.dnbComplete !== 'boolean') return false;
-    if (e.cfgComplete !== undefined && typeof e.cfgComplete !== 'boolean') return false;
   }
   return true;
 }

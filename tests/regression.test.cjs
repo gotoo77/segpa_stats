@@ -8,9 +8,11 @@ const XLSX = require('xlsx');
 function loadTs(file, mocks = {}) {
   let source = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
   const exported = [...source.matchAll(/export function (\w+)/g)].map((m) => m[1]);
+  source = source.replace(/^import type [^\n]+;\s*$/gm, '');
   source = source.replace(/^import \{[^\n]+\} from '\.\.\/types';\s*$/gm, '');
   source = source.replace("import * as XLSX from 'xlsx';", "const XLSX = require('xlsx');");
   source = source.replace("import { computeDnb, computeCfg } from './calculations';", "const { computeDnb, computeCfg } = require('./calculations');");
+  source = source.replace(/^import \{ ([^}]+) \} from '([^']+)';\s*$/gm, (_, names, id) => `const { ${names} } = require('${id}');`);
   source = source.replace(/export function /g, 'function ');
   const stripped = stripTypeScriptTypes(source, { mode: 'strip' });
   const output = stripped + '\nmodule.exports = { ' + exported.join(', ') + ' };';
@@ -95,7 +97,9 @@ test('Excel : état non renseigné préservé après export puis import', () => 
   assert.deepEqual(excel.parseWorkbook(XLSX.read(buf, { type: 'buffer' })), [pending]);
 });
 
-const backup = loadTs('src/utils/backup.ts');
+const dataIntegrity = loadTs('src/utils/dataIntegrity.ts', { './calculations': calculations });
+const backup = loadTs('src/utils/backup.ts', { './calculations': calculations, './dataIntegrity': dataIntegrity });
+const sessionStorage = loadTs('src/utils/sessionStorage.ts');
 
 test('JSON : sauvegarde de toutes les sessions sans perte et avec année active', () => {
   const data = {
@@ -113,4 +117,51 @@ test('JSON : restauration refuse un jeu de sessions mal formé', () => {
     format: 'statsegpa-backup', version: 1, exportedAt: '2026-11-06', activeYear: '2024',
     sessions: { '2024': { id: 'malformed', establishments: [{ name: '' }] } },
   }), /mal formées/);
+});
+
+
+test('restauration multiannuelle : les exemples supprimés ne réapparaissent pas au redémarrage', () => {
+  const examples = {
+    '2024': { id: 'a', year: 'Session 2024', establishments: [] },
+    '2025': { id: 'b', year: 'Session 2025', establishments: [] },
+    '2026': { id: 'c', year: 'Session 2026', establishments: [] },
+  };
+  const restored = { '2024': examples['2024'] };
+  assert.deepEqual(sessionStorage.loadStoredSessions(JSON.stringify(restored), null, examples), restored);
+  assert.deepEqual(Object.keys(sessionStorage.loadStoredSessions(null, null, examples)), ['2024', '2025', '2026']);
+});
+
+test('stockage local illisible : aucune substitution silencieuse par les exemples', () => {
+  assert.throws(() => sessionStorage.loadStoredSessions('{invalid', null, { '2026': {} }));
+  assert.throws(() => sessionStorage.loadStoredSessions('[]', null, { '2026': {} }));
+});
+
+test('JSON : refuser les données examinées dont les admis dépassent les présents', () => {
+  const e = item({ cfg: { inscrits: 10, presents: 5, admis: 8, refuses: 0 } });
+  const session = { id: '2024', year: 'Session 2024', bassinName: 'Réseau', establishments: [e], lastUpdated: '2026-11-06' };
+  assert.equal(backup.validateSession(session), false);
+  assert.throws(() => backup.parseCompleteBackup({
+    format: 'statsegpa-backup', version: 1, exportedAt: '2026-11-06', activeYear: '2024',
+    sessions: { '2024': session },
+  }));
+});
+
+test('JSON : refuser les déclarations malformées ou incohérentes', () => {
+  const session = { id: '2024', year: 'Session 2024', bassinName: 'Réseau', establishments: [item()],
+    submissions: [{ id: 'sub-1', status: 'pending', submittedBy: 'X' }], lastUpdated: '2026-11-06' };
+  assert.equal(backup.validateSession(session), false);
+});
+
+test('JSON : les résultats explicitement non renseignés restent restaurables', () => {
+  const incomplete = item({ dnbComplete: false, cfgComplete: false,
+    dnb: { inscrits: 10, presents: 0, admis: 8, refuses: 0, mentions: { ab: 0, b: 0, tb: 0 } },
+    cfg: { inscrits: 10, presents: 0, admis: 8, refuses: 0 } });
+  assert.equal(backup.validateSession({
+    id: '2024', year: 'Session 2024', bassinName: 'Test', establishments: [incomplete], lastUpdated: '2026-11-06'
+  }), true);
+});
+
+test('incohérences des examens renseignés : détectées avant édition du rapport', () => {
+  assert.ok(dataIntegrity.collectDataIssues([item({ dnb: { inscrits: 10, admis: 12, refuses: 0,
+    mentions: { ab: 0, b: 0, tb: 0 } } })]).some(x => x.includes('DNB')));
 });
