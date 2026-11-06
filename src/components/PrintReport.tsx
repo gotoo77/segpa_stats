@@ -120,6 +120,11 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
         </div>
 
         <p role="note" className="text-xs font-semibold text-slate-700 dark:text-slate-200">Couverture : DNB {stats.dnbRenseignes}/{stats.totalEtablissements}, CFG {stats.cfgRenseignes}/{stats.totalEtablissements} établissements renseignés. N.R. signifie « non renseigné ».</p>
+        {session.dataOrigin === 'demo' && (
+          <p role="note" className="border-2 border-amber-600 rounded-md p-2 text-xs font-bold text-amber-900 bg-amber-50">
+            Données fictives de démonstration : ne pas utiliser comme résultats officiels.
+          </p>
+        )}
         {/* Synthèse globale en encadrés */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center">
           <div

@@ -254,7 +254,7 @@ export const session2025: SessionData = {
   year: 'Session 2025',
   bassinName: "Bassin d'éducation et de formation SEGPA du Douaisis",
   regions: DEFAULT_REGIONS,
-  notes: 'Archive Session 2025 : Année marquée par une forte participation au DNB Pro.',
+  notes: 'Données fictives 2025, à remplacer avant utilisation réelle.',
   lastUpdated: '2025-07-08T14:30:00.000Z',
   submissions: [],
   establishments: [
@@ -431,7 +431,7 @@ export const session2024: SessionData = {
   year: 'Session 2024',
   bassinName: "Bassin d'éducation et de formation SEGPA du Douaisis",
   regions: DEFAULT_REGIONS,
-  notes: 'Archive Session 2024 : Données de référence pour la comparaison triennale.',
+  notes: 'Données fictives 2024, à remplacer avant utilisation réelle.',
   lastUpdated: '2024-07-05T15:00:00.000Z',
   submissions: [],
   establishments: [
