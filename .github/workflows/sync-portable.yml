@@ -1,0 +1,33 @@
+name: Build and synchronize portable HTML
+on:
+  push:
+    branches: ['fix/data-integrity-review']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Publish portable file on working branch
+        run: |
+          if ! git diff --quiet -- StatSEGPA_Portable.html; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add StatSEGPA_Portable.html
+            git commit -m 'build: synchronize portable HTML [skip ci]'
+            git push origin HEAD:${{ github.ref_name }}
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: statsegpa-portable
+          path: StatSEGPA_Portable.html
