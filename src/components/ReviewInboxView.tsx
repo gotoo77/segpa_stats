@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { ColleagueSubmission, SessionData, Establishment, COLLEGE_PALETTE } from '../types';
 import { computeDnb, computeCfg } from '../utils/calculations';
+import { resolveSubmissionTarget } from '../utils/submissionMatching';
 
 interface ReviewInboxViewProps {
   session: SessionData;
@@ -51,9 +52,21 @@ export const ReviewInboxView: React.FC<ReviewInboxViewProps> = ({
   const handleApprove = (submissionToApprove: ColleagueSubmission) => {
     const targetSub = editingSub && editingSub.id === submissionToApprove.id ? editingSub : submissionToApprove;
 
-    const existingIndex = session.establishments.findIndex(
-      (e) => e.name.toLowerCase().trim() === targetSub.establishmentName.toLowerCase().trim()
-    );
+    const errors = [
+      ...computeDnb(targetSub.dnb, targetSub.effectifClasse).errors,
+      ...computeCfg(targetSub.cfg, targetSub.effectifClasse).errors,
+    ];
+    if (errors.length > 0) {
+      alert(`Déclaration incohérente :\n${errors.join('\n')}`);
+      return;
+    }
+
+    const match = resolveSubmissionTarget(targetSub, session.establishments);
+    if (match.kind === 'ambiguous') {
+      alert('Plusieurs établissements correspondent à cette déclaration. Précisez son bassin ou sa ville avant validation.');
+      return;
+    }
+    const existingIndex = match.kind === 'existing' ? match.index : -1;
 
     let updatedEstablishments: Establishment[];
     if (existingIndex >= 0) {
@@ -64,6 +77,8 @@ export const ReviewInboxView: React.FC<ReviewInboxViewProps> = ({
         color: targetSub.color || updatedEstablishments[existingIndex].color,
         dnb: targetSub.dnb,
         cfg: targetSub.cfg,
+        dnbComplete: true,
+        cfgComplete: true,
       };
     } else {
       const color = targetSub.color || COLLEGE_PALETTE[session.establishments.length % COLLEGE_PALETTE.length];
@@ -71,15 +86,19 @@ export const ReviewInboxView: React.FC<ReviewInboxViewProps> = ({
         id: `segpa-${Date.now()}`,
         name: targetSub.establishmentName,
         city: targetSub.city || '',
+        bassin: targetSub.bassin || session.regions?.[0]?.name || 'Douaisis',
         color,
         effectifClasse: targetSub.effectifClasse,
         dnb: targetSub.dnb,
         cfg: targetSub.cfg,
+        dnbComplete: true,
+        cfgComplete: true,
       };
       updatedEstablishments = [...session.establishments, newEst];
     }
 
     const isModified = JSON.stringify(targetSub.dnb) !== JSON.stringify(submissionToApprove.dnb) ||
+                       JSON.stringify(targetSub.cfg) !== JSON.stringify(submissionToApprove.cfg) ||
                        targetSub.effectifClasse !== submissionToApprove.effectifClasse;
 
     const updatedSubmissions = submissions.map((s) => {

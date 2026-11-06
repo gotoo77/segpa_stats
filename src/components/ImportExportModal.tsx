@@ -11,15 +11,19 @@ import {
   AlertCircle,
   Check
 } from 'lucide-react';
-import { SessionData } from '../types';
+import { Establishment, SessionData, DEFAULT_REGIONS, COLLEGE_PALETTE } from '../types';
 import { exportSessionToExcel, downloadEmptyTemplate, parseExcelOrCsvFile } from '../utils/excel';
-import { initialSessionData } from '../data/mockData';
+import { DEFAULT_SESSIONS } from '../data/mockData';
+import { createCompleteBackup, parseCompleteBackup, validateSession } from '../utils/backup';
 
 interface ImportExportModalProps {
   isOpen: boolean;
   onClose: () => void;
   session: SessionData;
   setSession: React.Dispatch<React.SetStateAction<SessionData>>;
+  sessions: Record<string, SessionData>;
+  activeYear: string;
+  onRestoreAll: (sessions: Record<string, SessionData>, activeYear: string) => void;
 }
 
 export const ImportExportModal: React.FC<ImportExportModalProps> = ({
@@ -27,106 +31,122 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   onClose,
   session,
   setSession,
+  sessions,
+  activeYear,
+  onRestoreAll,
 }) => {
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const jsonInputRef = useRef<HTMLInputElement>(null);
 
+  const [excelPreview, setExcelPreview] = useState<{ fileName: string; establishments: Establishment[] } | null>(null);
+
   if (!isOpen) return null;
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
-
+    setExcelPreview(null);
+    setImportStatus('Analyse du fichier Excel en cours…');
+    setIsError(false);
     try {
-      setImportStatus('Lecture du fichier en cours...');
-      setIsError(false);
-      const establishments = await parseExcelOrCsvFile(file);
-
-      if (establishments.length === 0) {
-        throw new Error("Aucune ligne d'établissement valide trouvée dans le fichier.");
-      }
-
-      setSession((prev) => ({
-        ...prev,
-        establishments,
-        lastUpdated: new Date().toISOString(),
-      }));
-
-      setImportStatus(`Succès ! ${establishments.length} établissement(s) importé(s) avec succès.`);
-      setTimeout(() => {
-        setImportStatus(null);
-        onClose();
-      }, 1400);
-    } catch (err: any) {
-      console.error(err);
+      const establishments = await parseExcelOrCsvFile(file, session.regions?.[0]?.name || 'Douaisis');
+      if (!establishments.length) throw new Error('Aucun établissement trouvé');
+      setExcelPreview({ fileName: file.name, establishments });
+      setImportStatus(null);
+    } catch (error) {
       setIsError(true);
-      setImportStatus(`Erreur lors de l'import : ${err.message || 'Format de fichier non reconnu'}`);
+      setImportStatus('Import refusé : ' + (error instanceof Error ? error.message : 'Format inconnu'));
+    } finally {
+      event.target.value = '';
     }
+  };
+
+  const handleConfirmExcel = () => {
+    if (!excelPreview) return;
+    if (!window.confirm('Remplacer les ' + session.establishments.length + ' établissements de ' + session.year +
+      ' par les ' + excelPreview.establishments.length + ' établissements importés ? Les autres années resteront intactes.')) return;
+    setSession(prev => {
+      const regions = [...(prev.regions?.length ? prev.regions : DEFAULT_REGIONS)];
+      const names = new Set(regions.map(r => r.name));
+      for (const est of excelPreview.establishments) {
+        const name = est.bassin?.trim();
+        if (name && !names.has(name)) {
+          regions.push({ id: 'imported-' + regions.length, name,
+            color: COLLEGE_PALETTE[regions.length % COLLEGE_PALETTE.length] });
+          names.add(name);
+        }
+      }
+      return { ...prev, regions, establishments: excelPreview.establishments,
+        dataOrigin: 'user', lastUpdated: new Date().toISOString() };
+    });
+    setImportStatus('Import Excel confirmé dans ' + session.year);
+    setIsError(false);
+    setExcelPreview(null);
   };
 
   const handleExportJson = () => {
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(session, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `StatSEGPA_Sauvegarde_${session.year.replace(/\s+/g, '_')}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
+    const backup = createCompleteBackup(sessions, activeYear);
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' });
+    const href = URL.createObjectURL(blob);
+    const element = document.createElement('a');
+    element.href = href;
+    element.download = 'StatSEGPA_Sauvegarde_Toutes_Sessions_' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(element);
+    element.click();
+    element.remove();
+    URL.revokeObjectURL(href);
   };
 
-  const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleImportJson = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const parsed = JSON.parse(event.target?.result as string);
-        if (parsed.establishments && Array.isArray(parsed.establishments)) {
-          setSession(parsed);
-          setImportStatus('Sauvegarde JSON restaurée avec succès !');
-          setTimeout(() => {
-            setImportStatus(null);
-            onClose();
-          }, 1200);
-        } else {
-          throw new Error('Structure JSON invalide.');
-        }
-      } catch (err: any) {
-        setIsError(true);
-        setImportStatus("Impossible de lire ce fichier de sauvegarde JSON.");
+    try {
+      const parsed: unknown = JSON.parse(await file.text());
+      if (parsed && typeof parsed === 'object' && 'format' in parsed) {
+        const backup = parseCompleteBackup(parsed);
+        const years = Object.keys(backup.sessions).sort().join(', ');
+        if (!window.confirm('Restaurer toutes les sessions (' + years +
+          ') ? Cela remplacera intégralement les années présentes dans ce navigateur. Sauvegardez-les avant de continuer.')) return;
+        onRestoreAll(backup.sessions, backup.activeYear);
+        setImportStatus('Toutes les sessions ont été restaurées.');
+      } else if (validateSession(parsed)) {
+        if (!window.confirm('Ancienne sauvegarde annuelle détectée. Remplacer seulement ' +
+          session.year + ' par ce fichier (' + parsed.year + ') ?')) return;
+        setSession({ ...parsed, year: session.year, id: session.id, lastUpdated: new Date().toISOString() });
+        setImportStatus('Session annuelle restaurée.');
+      } else {
+        throw new Error('Sauvegarde inconnue ou structure invalide');
       }
-    };
-    reader.readAsText(file);
+      setIsError(false);
+    } catch (error) {
+      setIsError(true);
+      setImportStatus('Restauration refusée : ' + (error instanceof Error ? error.message : 'Fichier invalide'));
+    } finally {
+      event.target.value = '';
+    }
   };
 
   const handleResetDemo = () => {
-    if (confirm("Voulez-vous réinitialiser les données avec le jeu d'exemple des collèges ?")) {
-      setSession(initialSessionData);
-      onClose();
-    }
+    if (!window.confirm("Réinitialiser uniquement " + session.year + " avec ses données fictives d'exemple ?")) return;
+    const example = DEFAULT_SESSIONS[activeYear];
+    setSession(example ? structuredClone(example) : {
+      ...session, establishments: [], submissions: [], dataOrigin: 'user',
+      lastUpdated: new Date().toISOString(),
+    });
+    setExcelPreview(null);
+    onClose();
   };
 
   const handleClearAll = () => {
-    if (confirm("Attention : voulez-vous vider tous les établissements pour repartir d'une feuille vierge ?")) {
-      setSession((prev) => ({
-        ...prev,
-        establishments: [
-          {
-            id: `segpa-${Date.now()}`,
-            name: 'Collège 1',
-            color: '#2563eb',
-            effectifClasse: 14,
-            dnb: { inscrits: 0, admis: 0, refuses: 0, mentions: { tb: 0, b: 0, ab: 0 } },
-            cfg: { inscrits: 14, admis: 0, refuses: 0 },
-          },
-        ],
-        lastUpdated: new Date().toISOString(),
-      }));
-      onClose();
-    }
+    if (!window.confirm('Vider uniquement les établissements de ' + session.year + ' ? Une sauvegarde JSON préalable est recommandée.')) return;
+    setSession(prev => ({
+      ...prev, establishments: [], submissions: [], dataOrigin: 'user',
+      lastUpdated: new Date().toISOString(),
+    }));
+    setExcelPreview(null);
+    onClose();
   };
 
   return (
@@ -228,6 +248,20 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                 </button>
               </div>
             </div>
+            {excelPreview && (
+              <div className="border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/40 rounded-xl p-4 space-y-3" role="region" aria-label="Prévisualisation de l'import Excel">
+                <h5 className="font-bold text-sm text-blue-950 dark:text-blue-200">Prévisualisation avant remplacement</h5>
+                <p>Fichier : <strong>{excelPreview.fileName}</strong> | Destination : <strong>{session.year}</strong></p>
+                <p>{excelPreview.establishments.length} collèges | {excelPreview.establishments.reduce((sum, est) => sum + est.effectifClasse, 0)} élèves</p>
+                <p>Bassins : {[...new Set(excelPreview.establishments.map(e => e.bassin || 'Sans bassin'))].join(', ')}</p>
+                <p>DNB renseignés : {excelPreview.establishments.filter(e => e.dnbComplete !== false).length}, CFG renseignés : {excelPreview.establishments.filter(e => e.cfgComplete !== false).length}.</p>
+                <p className="font-medium">Attention : l'import remplace les établissements de cette année, sans affecter les autres années.</p>
+                <div className="flex gap-3">
+                  <button onClick={handleConfirmExcel} className="px-4 py-2 rounded-lg text-white bg-blue-700 hover:bg-blue-800 font-bold">Confirmer le remplacement</button>
+                  <button onClick={() => setExcelPreview(null)} className="px-4 py-2 rounded-lg border border-slate-400">Annuler</button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Section 2 : Sauvegarde Locale */}
@@ -242,7 +276,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                 className="flex items-center gap-2 p-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
               >
                 <Download className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" aria-hidden="true" />
-                <span>Télécharger la sauvegarde complète</span>
+                <span>Sauvegarder toutes les années (JSON)</span>
               </button>
 
               <input
@@ -257,9 +291,10 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                 className="flex items-center gap-2 p-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
               >
                 <Upload className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" aria-hidden="true" />
-                <span>Restaurer une sauvegarde JSON</span>
+                <span>Restaurer toutes les années (JSON)</span>
               </button>
             </div>
+            <p>La sauvegarde complète conserve les résultats de chaque année, les bassins, les déclarations et l'année sélectionnée. Les anciens fichiers JSON annuels restent importables.</p>
           </div>
 
           {/* Section 3 : Actions rapides */}
@@ -290,12 +325,12 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
             <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
             <div>
               <strong className="block text-emerald-950 dark:text-emerald-100 font-bold mb-0.5">
-                Garantie de Confidentialité & RGPD
+                Fonctionnement local et confidentialité
               </strong>
               <p className="text-[11px] leading-relaxed text-emerald-800 dark:text-emerald-300">
-                Cette application est 100 % autonome et fonctionne en circuit fermé dans votre navigateur.
-                Aucune donnée n'est envoyée sur Internet ou stockée sur un serveur externe. Les données restent
-                uniquement sur votre ordinateur dans le stockage local du navigateur.
+                Les données de travail sont enregistrées dans le stockage local du navigateur, sans synchronisation
+                automatique avec un serveur. Protégez les fichiers exportés et sauvegardez-les régulièrement.
+                La conformité RGPD dépend également du contexte d'utilisation.
               </p>
             </div>
           </div>

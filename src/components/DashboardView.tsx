@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { SessionData, COLLEGE_PALETTE } from '../types';
 import { calculateBassinStats, computeDnb, computeCfg } from '../utils/calculations';
+import { collectDataIssues } from '../utils/dataIntegrity';
 
 ChartJS.register(
   CategoryScale,
@@ -47,6 +48,7 @@ interface DashboardViewProps {
 export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = false }) => {
   const establishments = session.establishments;
   const stats = calculateBassinStats(establishments);
+  const dataIssues = collectDataIssues(establishments);
 
   // Mode de coloration : par couleur de collège ou par seuil de réussite
   const [colorMode, setColorMode] = useState<'college' | 'threshold'>('college');
@@ -87,10 +89,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
       {
         type: 'bar' as const,
         label: '% Réussite DNB Pro (Présents)',
-        data: establishments.map((e) => computeDnb(e.dnb, e.effectifClasse).tauxPresents),
+        data: establishments.map((e) => e.dnbComplete === false ? null : computeDnb(e.dnb, e.effectifClasse).tauxPresents),
         backgroundColor: colorMode === 'college'
           ? collegeColors
           : establishments.map((e) => {
+              if (e.dnbComplete === false) return 'rgba(148, 163, 184, 0.2)';
               const rate = computeDnb(e.dnb, e.effectifClasse).tauxPresents;
               if (rate >= 85) return 'rgba(16, 185, 129, 0.85)';
               if (rate >= 70) return 'rgba(37, 99, 235, 0.85)';
@@ -122,10 +125,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
       {
         type: 'bar' as const,
         label: '% Réussite CFG (Présents)',
-        data: establishments.map((e) => computeCfg(e.cfg, e.effectifClasse).tauxPresents),
+        data: establishments.map((e) => e.cfgComplete === false ? null : computeCfg(e.cfg, e.effectifClasse).tauxPresents),
         backgroundColor: colorMode === 'college'
           ? collegeColors
           : establishments.map((e) => {
+              if (e.cfgComplete === false) return 'rgba(148, 163, 184, 0.2)';
               const rate = computeCfg(e.cfg, e.effectifClasse).tauxPresents;
               if (rate === 100) return 'rgba(13, 148, 136, 0.9)';
               if (rate >= 85) return 'rgba(16, 185, 129, 0.85)';
@@ -157,7 +161,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
       {
         type: 'bar' as const,
         label: '% Classe inscrite au DNB Pro',
-        data: establishments.map((e) => computeDnb(e.dnb, e.effectifClasse).tauxPresentation),
+        data: establishments.map((e) => e.dnbComplete === false ? null : computeDnb(e.dnb, e.effectifClasse).tauxPresentation),
         backgroundColor: collegeColors,
         borderColor: collegeColors,
         borderWidth: 1.5,
@@ -184,25 +188,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
     datasets: [
       {
         label: 'Mention Assez Bien (AB)',
-        data: establishments.map((e) => e.dnb.mentions?.ab || 0),
+        data: establishments.map((e) => e.dnbComplete === false ? 0 : (e.dnb.mentions?.ab || 0)),
         backgroundColor: '#10b981',
         borderRadius: 2,
       },
       {
         label: 'Mention Bien (B)',
-        data: establishments.map((e) => e.dnb.mentions?.b || 0),
+        data: establishments.map((e) => e.dnbComplete === false ? 0 : (e.dnb.mentions?.b || 0)),
         backgroundColor: '#3b82f6',
         borderRadius: 2,
       },
       {
         label: 'Mention Très Bien (TB)',
-        data: establishments.map((e) => e.dnb.mentions?.tb || 0),
+        data: establishments.map((e) => e.dnbComplete === false ? 0 : (e.dnb.mentions?.tb || 0)),
         backgroundColor: '#f59e0b',
         borderRadius: 2,
       },
       {
         label: 'Admis Sans Mention',
-        data: establishments.map((e) => computeDnb(e.dnb, e.effectifClasse).sansMention),
+        data: establishments.map((e) => e.dnbComplete === false ? 0 : computeDnb(e.dnb, e.effectifClasse).sansMention),
         backgroundColor: isDark ? '#64748b' : '#94a3b8',
         borderRadius: 2,
       },
@@ -215,7 +219,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
     datasets: [
       {
         label: 'DNB Pro (% Réussite)',
-        data: establishments.map((e) => computeDnb(e.dnb, e.effectifClasse).tauxPresents),
+        data: establishments.map((e) => e.dnbComplete === false ? null : computeDnb(e.dnb, e.effectifClasse).tauxPresents),
         backgroundColor: 'rgba(59, 130, 246, 0.85)',
         borderColor: '#2563eb',
         borderWidth: 1.5,
@@ -223,7 +227,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
       },
       {
         label: 'CFG (% Réussite)',
-        data: establishments.map((e) => computeCfg(e.cfg, e.effectifClasse).tauxPresents),
+        data: establishments.map((e) => e.cfgComplete === false ? null : computeCfg(e.cfg, e.effectifClasse).tauxPresents),
         backgroundColor: 'rgba(20, 184, 166, 0.85)',
         borderColor: '#0d9488',
         borderWidth: 1.5,
@@ -316,6 +320,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
 
   return (
     <div className="space-y-8 pb-16 transition-colors">
+      {dataIssues.length > 0 && (
+        <div role="alert" className="rounded-xl border-2 border-red-600 bg-red-50 dark:bg-red-950 text-red-900 dark:text-red-100 p-4">
+          <strong>Statistiques non validées : chiffres incohérents.</strong>
+          <ul className="list-disc ml-5 text-xs">{dataIssues.map((issue, i) => <li key={i}>{issue}</li>)}</ul>
+        </div>
+      )}
       {/* Barre supérieure : Commutateur de mode couleur */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs gap-3">
         <div className="flex items-center gap-2">
@@ -350,6 +360,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
         </div>
       </div>
 
+      <p role="note" className="text-xs text-slate-700 dark:text-slate-300">Couverture : {stats.dnbRenseignes}/{stats.totalEtablissements} établissements DNB renseignés, {stats.cfgRenseignes}/{stats.totalEtablissements} CFG renseignés. Les données manquantes sont exclues des taux consolidés.</p>
       {/* ========================================================================= */}
       {/* BANDEAU INDICATEURS CLÉS (KPIS) */}
       {/* ========================================================================= */}
@@ -363,12 +374,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-indigo-700 dark:text-indigo-400">{stats.tauxMoyenPresentationDnb}%</span>
+            <span className="text-3xl font-extrabold text-indigo-700 dark:text-indigo-400">{stats.dnbRenseignes ? stats.tauxMoyenPresentationDnb + '%' : 'N.R.'}</span>
             <span className="text-xs font-medium text-slate-400">de la classe</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-2">
-            <span><strong>{stats.dnb.inscrits}</strong> inscrits / {stats.totalEffectifClasse}</span>
-            <span className="text-indigo-600 dark:text-indigo-400 font-semibold">{stats.totalEffectifClasse} élèves en 3e</span>
+            <span><strong>{stats.dnb.inscrits}</strong> inscrits / {stats.dnbEffectifClasse}</span>
+            <span className="text-indigo-600 dark:text-indigo-400 font-semibold">{stats.totalEffectifClasse} élèves en 3e au total</span>
           </div>
         </div>
 
@@ -381,7 +392,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-blue-700 dark:text-blue-400">{stats.dnb.tauxMoyenPresents}%</span>
+            <span className="text-3xl font-extrabold text-blue-700 dark:text-blue-400">{stats.dnbRenseignes ? stats.dnb.tauxMoyenPresents + '%' : 'N.R.'}</span>
             <span className="text-xs font-medium text-slate-400">sur candidats</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-2">
@@ -399,7 +410,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-emerald-700 dark:text-emerald-400">{stats.cfg.tauxMoyenPresents}%</span>
+            <span className="text-3xl font-extrabold text-emerald-700 dark:text-emerald-400">{stats.cfgRenseignes ? stats.cfg.tauxMoyenPresents + '%' : 'N.R.'}</span>
             <span className="text-xs font-medium text-slate-400">des élèves</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-2">
@@ -417,7 +428,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">{stats.dnb.tauxMoyenMentions}%</span>
+            <span className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">{stats.dnbRenseignes ? stats.dnb.tauxMoyenMentions + '%' : 'N.R.'}</span>
             <span className="text-xs font-medium text-slate-400">des admis</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-2">
@@ -438,7 +449,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-slate-900 dark:text-white">Taux d'inscription au DNB Pro (% effectif de la classe)</h3>
                 <span className="text-[11px] bg-indigo-100 dark:bg-indigo-950/80 text-indigo-800 dark:text-indigo-300 font-semibold px-2 py-0.5 rounded-full">
-                  Moyenne: {stats.tauxMoyenPresentationDnb}%
+                  Moyenne: {stats.dnbRenseignes ? stats.tauxMoyenPresentationDnb + '%' : 'N.R.'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -467,7 +478,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-slate-900 dark:text-white">Taux de réussite DNB Pro (sur candidats)</h3>
                 <span className="text-[11px] bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 font-semibold px-2 py-0.5 rounded-full">
-                  Moyenne: {stats.dnb.tauxMoyenPresents}%
+                  Moyenne: {stats.dnbRenseignes ? stats.dnb.tauxMoyenPresents + '%' : 'N.R.'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Comparatif par collège avec ligne repère moyenne de bassin</p>
@@ -494,7 +505,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-slate-900 dark:text-white">Taux de réussite CFG (Certificat de Formation Générale)</h3>
                 <span className="text-[11px] bg-teal-100 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300 font-semibold px-2 py-0.5 rounded-full">
-                  Moyenne: {stats.cfg.tauxMoyenPresents}%
+                  Moyenne: {stats.cfgRenseignes ? stats.cfg.tauxMoyenPresents + '%' : 'N.R.'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Examen passé par 100% des élèves de 3e SEGPA</p>

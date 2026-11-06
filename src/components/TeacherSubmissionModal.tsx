@@ -1,22 +1,27 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Send, School, MessageSquare } from 'lucide-react';
-import { ColleagueSubmission, COLLEGE_PALETTE } from '../types';
+import { ColleagueSubmission, Establishment, RegionConfig } from '../types';
 
 interface TeacherSubmissionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (sub: ColleagueSubmission) => void;
-  existingEstablishmentNames: string[];
+  existingEstablishments: Establishment[];
+  regions: RegionConfig[];
+  defaultBassin: string;
 }
 
 export const TeacherSubmissionModal: React.FC<TeacherSubmissionModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
-  existingEstablishmentNames,
+  existingEstablishments,
+  regions,
+  defaultBassin,
 }) => {
   const [colleagueName, setColleagueName] = useState('Mme / M. Enseignant Référent');
-  const [establishmentName, setEstablishmentName] = useState(existingEstablishmentNames[0] || 'Collège Exemple');
+  const [establishmentName, setEstablishmentName] = useState(existingEstablishments[0]?.name || 'Collège Exemple');
+  const [bassin, setBassin] = useState(defaultBassin);
   const [city, setCity] = useState('');
   const [effectifClasse, setEffectifClasse] = useState(14);
   const [teacherComment, setTeacherComment] = useState('');
@@ -34,6 +39,10 @@ export const TeacherSubmissionModal: React.FC<TeacherSubmissionModalProps> = ({
   const [cfgAdmis, setCfgAdmis] = useState(13);
   const [cfgRefuses, setCfgRefuses] = useState(1);
 
+  useEffect(() => {
+    if (isOpen) setBassin(defaultBassin);
+  }, [isOpen, defaultBassin]);
+
   if (!isOpen) return null;
 
   const handleEffectifChange = (val: number) => {
@@ -48,6 +57,7 @@ export const TeacherSubmissionModal: React.FC<TeacherSubmissionModalProps> = ({
       id: `sub-${Date.now()}`,
       establishmentName,
       city,
+      bassin,
       submittedBy: colleagueName,
       submittedAt: new Date().toISOString(),
       status: 'pending',
@@ -84,7 +94,7 @@ export const TeacherSubmissionModal: React.FC<TeacherSubmissionModalProps> = ({
                 <h3 className="font-bold text-lg">Espace Déclaration Collègue</h3>
                 <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-semibold">Transmission Direction</span>
               </div>
-              <p className="text-xs text-emerald-100">Transmettez vos résultats de session pour validation par la direction</p>
+              <p className="text-xs text-emerald-100">Enregistrez localement vos résultats pour validation</p>
             </div>
           </div>
           <button onClick={onClose} aria-label="Fermer" className="p-1.5 text-white/80 hover:text-white rounded-xl transition">
@@ -117,15 +127,30 @@ export const TeacherSubmissionModal: React.FC<TeacherSubmissionModalProps> = ({
                 required
                 list="etab-list"
                 value={establishmentName}
-                onChange={(e) => setEstablishmentName(e.target.value)}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  setEstablishmentName(name);
+                  const matches = existingEstablishments.filter(est => est.name.trim().toLowerCase() === name.trim().toLowerCase());
+                  if (matches.length === 1 && matches[0].bassin) setBassin(matches[0].bassin);
+                }}
                 placeholder="Ex: Collège Jean Moulin"
                 className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white rounded-lg px-3 py-1.5 text-xs font-semibold focus:border-emerald-500 focus:outline-hidden"
               />
               <datalist id="etab-list">
-                {existingEstablishmentNames.map((name) => (
-                  <option key={name} value={name} />
+                {existingEstablishments.map((est) => (
+                  <option key={est.id} value={est.name} label={`${est.name} (${est.bassin || 'sans bassin'})`} />
                 ))}
               </datalist>
+            </div>
+
+            <div className="space-y-1">
+              <label htmlFor="teacher-bassin" className="font-bold text-slate-800 dark:text-slate-200">Bassin de l'établissement :</label>
+              <select id="teacher-bassin" aria-label="Bassin de la déclaration" value={bassin}
+                onChange={(e) => setBassin(e.target.value)}
+                className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-xs">
+                {!regions.some(r => r.name === bassin) && <option value={bassin}>{bassin}</option>}
+                {regions.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+              </select>
             </div>
 
             <div className="space-y-1 sm:col-span-2 flex items-center justify-between bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border border-amber-200 dark:border-amber-800">
@@ -294,7 +319,7 @@ export const TeacherSubmissionModal: React.FC<TeacherSubmissionModalProps> = ({
               className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition"
             >
               <Send className="w-4 h-4" aria-hidden="true" />
-              Transmettre à la direction
+              Enregistrer pour validation
             </button>
           </div>
         </form>

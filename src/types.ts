@@ -32,6 +32,9 @@ export interface Establishment {
   effectifClasse: number; // Effectif total de la classe de 3e SEGPA
   dnb: DnbData;
   cfg: CfgData;
+  /** false = résultats non renseignés. Absent = renseignés, pour compatibilité avec les données existantes. */
+  dnbComplete?: boolean;
+  cfgComplete?: boolean;
 }
 
 export type SubmissionStatus = 'pending' | 'approved' | 'modified';
@@ -58,6 +61,7 @@ export interface SessionData {
   bassinName: string;
   regions?: RegionConfig[];
   establishments: Establishment[];
+  dataOrigin?: 'demo' | 'user';
   submissions?: ColleagueSubmission[];
   notes?: string;
   lastUpdated: string;
@@ -87,7 +91,13 @@ export interface ComputedCfg {
 
 export interface BassinStats {
   totalEtablissements: number;
+  dnbRenseignes: number;
+  cfgRenseignes: number;
   totalEffectifClasse: number;
+  /** Effectif des seuls collèges dont le DNB est renseigné : dénominateur du taux de présentation. */
+  dnbEffectifClasse: number;
+  /** Effectif des seuls collèges dont le CFG est renseigné. */
+  cfgEffectifClasse: number;
   tauxMoyenPresentationDnb: number;
   dnb: {
     inscrits: number;
@@ -162,7 +172,7 @@ export interface PresentationSettings {
 
 export const DEFAULT_PRESENTATION_SETTINGS: PresentationSettings = {
   title: 'Bilan des Résultats aux Examens : DNB Professionnel & CFG',
-  badge: "Bassin d'éducation et de formation SEGPA du Douaisis",
+  badge: '', // Vide = bassin affiché dans la session active
   subtitle: 'Direction & Coordination du Réseau',
   presenter: 'Direction SEGPA',
   closingMessage: "Félicitations à l'ensemble des élèves et aux équipes pédagogiques du bassin pour leur investissement !",

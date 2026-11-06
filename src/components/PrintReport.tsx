@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Printer, FileText, Sun, Moon, Eye } from 'lucide-react';
 import { SessionData } from '../types';
 import { calculateBassinStats, computeDnb, computeCfg } from '../utils/calculations';
+import { collectDataIssues } from '../utils/dataIntegrity';
 
 interface PrintReportProps {
   session: SessionData;
@@ -10,9 +11,11 @@ interface PrintReportProps {
 export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
   const establishments = session.establishments;
   const stats = calculateBassinStats(establishments);
+  const dataIssues = collectDataIssues(establishments);
   const [reportTheme, setReportTheme] = useState<'paper' | 'dark'>('paper');
 
   const handlePrint = () => {
+    if (dataIssues.length) return;
     window.print();
   };
 
@@ -63,6 +66,8 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
 
           <button
             onClick={handlePrint}
+            disabled={dataIssues.length > 0}
+            title={dataIssues.length ? 'Corrigez les résultats incohérents avant impression' : undefined}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs transition shadow-sm"
           >
             <Printer className="w-4 h-4" />
@@ -75,7 +80,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
       <div
         className={`p-8 rounded-3xl border shadow-sm space-y-6 print:p-0 print:border-none print:shadow-none print:bg-white print:text-black transition-colors ${
           isPaper
-            ? 'bg-white text-slate-900 border-slate-200'
+            ? 'report-paper bg-white text-slate-900 border-slate-200'
             : 'bg-slate-900 text-slate-100 border-slate-800'
         }`}
       >
@@ -119,6 +124,18 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
           </div>
         </div>
 
+        <p role="note" className="text-xs font-semibold text-slate-700 dark:text-slate-200">Couverture : DNB {stats.dnbRenseignes}/{stats.totalEtablissements}, CFG {stats.cfgRenseignes}/{stats.totalEtablissements} établissements renseignés. N.R. signifie « non renseigné ».</p>
+        {session.dataOrigin === 'demo' && (
+          <p role="note" className="border-2 border-amber-600 rounded-md p-2 text-xs font-bold text-amber-900 bg-amber-50">
+            Données fictives de démonstration : ne pas utiliser comme résultats officiels.
+          </p>
+        )}
+        {dataIssues.length > 0 && (
+          <div role="alert" className="rounded-xl border-2 border-red-600 bg-red-50 text-red-950 p-4 space-y-2">
+            <strong>Rapport non validé : corrigez les incohérences avant impression ou diffusion.</strong>
+            <ul className="list-disc ml-5 text-xs">{dataIssues.map((issue, i) => <li key={i}>{issue}</li>)}</ul>
+          </div>
+        )}
         {/* Synthèse globale en encadrés */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center">
           <div
@@ -130,10 +147,10 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
               Présentation DNB
             </span>
             <span className={`text-2xl font-black ${isPaper ? 'text-indigo-800' : 'text-indigo-400'}`}>
-              {stats.tauxMoyenPresentationDnb}%
+              {stats.dnbRenseignes ? stats.tauxMoyenPresentationDnb + '%' : 'N.R.'}
             </span>
             <span className={`block text-[11px] font-medium ${isPaper ? 'text-slate-600' : 'text-slate-400'}`}>
-              {stats.dnb.inscrits} inscrits / {stats.totalEffectifClasse}
+              {stats.dnb.inscrits} inscrits / {stats.dnbEffectifClasse} élèves (DNB renseigné)
             </span>
           </div>
 
@@ -146,7 +163,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
               Taux Réussite DNB
             </span>
             <span className={`text-2xl font-black ${isPaper ? 'text-blue-800' : 'text-blue-400'}`}>
-              {stats.dnb.tauxMoyenPresents}%
+              {stats.dnbRenseignes ? stats.dnb.tauxMoyenPresents + '%' : 'N.R.'}
             </span>
             <span className={`block text-[11px] font-medium ${isPaper ? 'text-slate-600' : 'text-slate-400'}`}>
               {stats.dnb.admis} admis / {stats.dnb.presents}
@@ -162,7 +179,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
               Taux Réussite CFG
             </span>
             <span className={`text-2xl font-black ${isPaper ? 'text-emerald-800' : 'text-emerald-400'}`}>
-              {stats.cfg.tauxMoyenPresents}%
+              {stats.cfgRenseignes ? stats.cfg.tauxMoyenPresents + '%' : 'N.R.'}
             </span>
             <span className={`block text-[11px] font-medium ${isPaper ? 'text-slate-600' : 'text-slate-400'}`}>
               {stats.cfg.admis} admis / {stats.cfg.presents}
@@ -250,39 +267,39 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
                         {est.effectifClasse}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-semibold ${isPaper ? 'text-slate-900' : 'text-slate-200'}`}>
-                        {est.dnb.inscrits}
+                        {est.dnbComplete === false ? 'N.R.' : est.dnb.inscrits}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-semibold ${isPaper ? 'text-slate-700' : 'text-slate-300'}`}>
-                        {comp.tauxPresentation}%
+                        {est.dnbComplete === false ? 'N.R.' : comp.tauxPresentation + '%'}
                       </td>
                       <td className={`p-2 text-center font-black border-r border-inherit ${
                         isPaper ? 'text-emerald-800' : 'text-emerald-400'
                       }`}>
-                        {est.dnb.admis}
+                        {est.dnbComplete === false ? 'N.R.' : est.dnb.admis}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-semibold ${
                         est.dnb.refuses > 0 
                           ? (isPaper ? 'text-rose-800 font-bold' : 'text-rose-400 font-bold') 
                           : (isPaper ? 'text-slate-500' : 'text-slate-400')
                       }`}>
-                        {est.dnb.refuses}
+                        {est.dnbComplete === false ? 'N.R.' : est.dnb.refuses}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-semibold ${isPaper ? 'text-slate-900' : 'text-slate-200'}`}>
-                        {est.dnb.mentions?.ab || 0}
+                        {est.dnbComplete === false ? 'N.R.' : (est.dnb.mentions?.ab || 0)}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-semibold ${isPaper ? 'text-slate-900' : 'text-slate-200'}`}>
-                        {est.dnb.mentions?.b || 0}
+                        {est.dnbComplete === false ? 'N.R.' : (est.dnb.mentions?.b || 0)}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-semibold ${isPaper ? 'text-slate-900' : 'text-slate-200'}`}>
-                        {est.dnb.mentions?.tb || 0}
+                        {est.dnbComplete === false ? 'N.R.' : (est.dnb.mentions?.tb || 0)}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-bold ${isPaper ? 'text-blue-900' : 'text-blue-300'}`}>
-                        {comp.tauxInscrits}%
+                        {est.dnbComplete === false ? 'N.R.' : comp.tauxInscrits + '%'}
                       </td>
                       <td className={`p-2 text-center font-black ${
                         isPaper ? 'text-slate-950 bg-slate-100' : 'text-white bg-slate-800'
                       }`}>
-                        {comp.tauxPresents}%
+                        {est.dnbComplete === false ? 'N.R.' : comp.tauxPresents + '%'}
                       </td>
                     </tr>
                   );
@@ -298,10 +315,10 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
                 <tr>
                   <td className="p-2 border-r border-inherit uppercase">TOTAL / MOYENNE BASSIN</td>
                   <td className={`p-2 text-center border-r border-inherit ${isPaper ? 'bg-amber-200 text-amber-950' : 'bg-amber-900/60 text-amber-200'}`}>
-                    {stats.totalEffectifClasse}
+                    {stats.dnbEffectifClasse}
                   </td>
                   <td className="p-2 text-center border-r border-inherit">{stats.dnb.inscrits}</td>
-                  <td className="p-2 text-center border-r border-inherit">{stats.tauxMoyenPresentationDnb}%</td>
+                  <td className="p-2 text-center border-r border-inherit">{stats.dnbRenseignes ? stats.tauxMoyenPresentationDnb + '%' : 'N.R.'}</td>
                   <td className={`p-2 text-center border-r border-inherit ${isPaper ? 'text-emerald-900' : 'text-emerald-300'}`}>
                     {stats.dnb.admis}
                   </td>
@@ -310,10 +327,10 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
                   <td className="p-2 text-center border-r border-inherit">{stats.dnb.mentionsB}</td>
                   <td className="p-2 text-center border-r border-inherit">{stats.dnb.mentionsTB}</td>
                   <td className={`p-2 text-center border-r border-inherit ${isPaper ? 'text-blue-950' : 'text-blue-300'}`}>
-                    {stats.dnb.tauxMoyenInscrits}%
+                    {stats.dnbRenseignes ? stats.dnb.tauxMoyenInscrits + '%' : 'N.R.'}
                   </td>
                   <td className={`p-2 text-center font-black ${isPaper ? 'bg-slate-300 text-slate-950' : 'bg-slate-700 text-white'}`}>
-                    {stats.dnb.tauxMoyenPresents}%
+                    {stats.dnbRenseignes ? stats.dnb.tauxMoyenPresents + '%' : 'N.R.'}
                   </td>
                 </tr>
               </tfoot>
@@ -381,27 +398,27 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
                         {est.effectifClasse}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-semibold ${isPaper ? 'text-slate-900' : 'text-slate-200'}`}>
-                        {est.cfg.inscrits}
+                        {est.cfgComplete === false ? 'N.R.' : est.cfg.inscrits}
                       </td>
                       <td className={`p-2 text-center font-black border-r border-inherit ${
                         isPaper ? 'text-emerald-800' : 'text-emerald-400'
                       }`}>
-                        {est.cfg.admis}
+                        {est.cfgComplete === false ? 'N.R.' : est.cfg.admis}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-semibold ${
                         est.cfg.refuses > 0 
                           ? (isPaper ? 'text-rose-800 font-bold' : 'text-rose-400 font-bold') 
                           : (isPaper ? 'text-slate-500' : 'text-slate-400')
                       }`}>
-                        {est.cfg.refuses}
+                        {est.cfgComplete === false ? 'N.R.' : est.cfg.refuses}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-bold ${isPaper ? 'text-teal-900' : 'text-teal-300'}`}>
-                        {comp.tauxInscrits}%
+                        {est.cfgComplete === false ? 'N.R.' : comp.tauxInscrits + '%'}
                       </td>
                       <td className={`p-2 text-center font-black ${
                         isPaper ? 'text-slate-950 bg-slate-100' : 'text-white bg-slate-800'
                       }`}>
-                        {comp.tauxPresents}%
+                        {est.cfgComplete === false ? 'N.R.' : comp.tauxPresents + '%'}
                       </td>
                     </tr>
                   );
@@ -417,7 +434,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
                 <tr>
                   <td className="p-2 border-r border-inherit uppercase">TOTAL / MOYENNE BASSIN</td>
                   <td className={`p-2 text-center border-r border-inherit ${isPaper ? 'bg-amber-200 text-amber-950' : 'bg-amber-900/60 text-amber-200'}`}>
-                    {stats.totalEffectifClasse}
+                    {stats.cfgEffectifClasse}
                   </td>
                   <td className="p-2 text-center border-r border-inherit">{stats.cfg.inscrits}</td>
                   <td className={`p-2 text-center border-r border-inherit ${isPaper ? 'text-emerald-900' : 'text-emerald-300'}`}>
@@ -425,10 +442,10 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
                   </td>
                   <td className="p-2 text-center border-r border-inherit">{stats.cfg.refuses}</td>
                   <td className={`p-2 text-center border-r border-inherit ${isPaper ? 'text-teal-950' : 'text-teal-300'}`}>
-                    {stats.cfg.tauxMoyenInscrits}%
+                    {stats.cfgRenseignes ? stats.cfg.tauxMoyenInscrits + '%' : 'N.R.'}
                   </td>
                   <td className={`p-2 text-center font-black ${isPaper ? 'bg-slate-300 text-slate-950' : 'bg-slate-700 text-white'}`}>
-                    {stats.cfg.tauxMoyenPresents}%
+                    {stats.cfgRenseignes ? stats.cfg.tauxMoyenPresents + '%' : 'N.R.'}
                   </td>
                 </tr>
               </tfoot>

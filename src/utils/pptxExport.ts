@@ -1,8 +1,11 @@
 import pptxgenjs from 'pptxgenjs';
-import { SessionData } from '../types';
+import { SessionData, PresentationSettings, DEFAULT_PRESENTATION_SETTINGS } from '../types';
 import { calculateBassinStats, computeDnb, computeCfg } from './calculations';
+import { collectDataIssues } from './dataIntegrity';
 
-export async function exportPresentationToPptx(session: SessionData) {
+export async function exportPresentationToPptx(session: SessionData, settings: PresentationSettings = DEFAULT_PRESENTATION_SETTINGS) {
+  const issues = collectDataIssues(session.establishments);
+  if (issues.length) throw new Error('Résultats incohérents : ' + issues.join('; '));
   const pptx = new pptxgenjs();
 
   pptx.layout = 'LAYOUT_16x9';
@@ -12,11 +15,15 @@ export async function exportPresentationToPptx(session: SessionData) {
 
   const stats = calculateBassinStats(session.establishments);
   const yearText = session.year;
-  const bassinText = session.bassinName;
+  const bassinText = settings.badge.trim() || session.bassinName;
+  const dnbPresentation = stats.dnbRenseignes ? stats.tauxMoyenPresentationDnb + '%' : 'N.R.';
+  const dnbSuccess = stats.dnbRenseignes ? stats.dnb.tauxMoyenPresents + '%' : 'N.R.';
+  const cfgSuccess = stats.cfgRenseignes ? stats.cfg.tauxMoyenPresents + '%' : 'N.R.';
 
   // --------------------------------------------------------------------------
   // SLIDE 1 : Titre / Page de garde
   // --------------------------------------------------------------------------
+  if (settings.enabledSlides.intro) {
   const slide1 = pptx.addSlide();
   slide1.background = { color: '0f172a' }; // Slate 900
 
@@ -30,7 +37,7 @@ export async function exportPresentationToPptx(session: SessionData) {
     fontFace: 'Arial',
   });
 
-  slide1.addText('Bilan des Résultats aux Examens', {
+  slide1.addText(settings.title, {
     x: 1.0,
     y: 1.8,
     w: '80%',
@@ -144,6 +151,9 @@ export async function exportPresentationToPptx(session: SessionData) {
   // --------------------------------------------------------------------------
   // SLIDE 2 : Les Chiffres Clés du Bassin
   // --------------------------------------------------------------------------
+  }
+  if (settings.enabledSlides.kpis) {
+
   const slide2 = pptx.addSlide();
   slide2.background = { color: '0f172a' };
 
@@ -161,12 +171,12 @@ export async function exportPresentationToPptx(session: SessionData) {
     rectRadius: 0.15,
   });
   slide2.addText('DNB PROFESSIONNEL', { x: 1.3, y: 2.3, fontSize: 16, bold: true, color: '60a5fa' });
-  slide2.addText(`${stats.dnb.tauxMoyenPresents}%`, { x: 1.3, y: 2.8, fontSize: 48, bold: true, color: 'ffffff' });
+  slide2.addText(dnbSuccess, { x: 1.3, y: 2.8, fontSize: 48, bold: true, color: 'ffffff' });
   slide2.addText('de réussite sur les candidats présents', { x: 1.3, y: 3.9, fontSize: 12, color: '94a3b8' });
 
   slide2.addText([
     { text: `• Taux d'inscription : `, options: { color: 'cbd5e1', bold: false } },
-    { text: `${stats.tauxMoyenPresentationDnb}% de la classe\n`, options: { color: '60a5fa', bold: true } },
+    { text: `${dnbPresentation} (${stats.dnb.inscrits}/${stats.dnbEffectifClasse} élèves renseignés)\n`, options: { color: '60a5fa', bold: true } },
     { text: `• Candidats admis : `, options: { color: 'cbd5e1', bold: false } },
     { text: `${stats.dnb.admis} / ${stats.dnb.presents} présents\n`, options: { color: 'ffffff', bold: true } },
     { text: `• Mentions décernées : `, options: { color: 'cbd5e1', bold: false } },
@@ -184,21 +194,24 @@ export async function exportPresentationToPptx(session: SessionData) {
     rectRadius: 0.15,
   });
   slide2.addText('CERTIFICAT DE FORMATION GÉNÉRALE', { x: 7.1, y: 2.3, fontSize: 16, bold: true, color: '2dd4bf' });
-  slide2.addText(`${stats.cfg.tauxMoyenPresents}%`, { x: 7.1, y: 2.8, fontSize: 48, bold: true, color: 'ffffff' });
+  slide2.addText(cfgSuccess, { x: 7.1, y: 2.8, fontSize: 48, bold: true, color: 'ffffff' });
   slide2.addText('de réussite sur l’ensemble de la promotion', { x: 7.1, y: 3.9, fontSize: 12, color: '94a3b8' });
 
   slide2.addText([
     { text: `• Inscription : `, options: { color: 'cbd5e1', bold: false } },
-    { text: `100% des élèves de 3e SEGPA\n`, options: { color: '34d399', bold: true } },
+    { text: `${stats.cfg.inscrits}/${stats.cfgEffectifClasse} élèves des collèges renseignés\n`, options: { color: '34d399', bold: true } },
     { text: `• Candidats admis : `, options: { color: 'cbd5e1', bold: false } },
     { text: `${stats.cfg.admis} / ${stats.cfg.presents} élèves\n`, options: { color: 'ffffff', bold: true } },
     { text: `• Collèges à 100% : `, options: { color: 'cbd5e1', bold: false } },
-    { text: `${session.establishments.filter((e) => computeCfg(e.cfg, e.effectifClasse).tauxPresents === 100).length} sur ${session.establishments.length} collèges\n`, options: { color: '2dd4bf', bold: true } },
+    { text: `${session.establishments.filter((e) => e.cfgComplete !== false && computeCfg(e.cfg, e.effectifClasse).tauxPresents === 100).length} sur ${session.establishments.length} collèges\n`, options: { color: '2dd4bf', bold: true } },
   ], { x: 7.1, y: 4.4, w: 4.6, fontSize: 13 });
 
   // --------------------------------------------------------------------------
   // SLIDE 3 : Tableau Comparatif DNB Pro
   // --------------------------------------------------------------------------
+  }
+  if (settings.enabledSlides.dnb) {
+
   const slide3 = pptx.addSlide();
   slide3.background = { color: '0f172a' };
 
@@ -225,12 +238,12 @@ export async function exportPresentationToPptx(session: SessionData) {
       { text: est.name, options: { color: 'ffffff', fontSize: 10 } },
       { text: est.bassin || 'Douaisis', options: { color: 'cbd5e1', fontSize: 9, align: 'center' } },
       { text: String(est.effectifClasse), options: { color: 'f59e0b', fontSize: 10, align: 'center', bold: true } },
-      { text: String(est.dnb.inscrits), options: { color: 'ffffff', fontSize: 10, align: 'center' } },
-      { text: `${comp.tauxPresentation}%`, options: { color: '38bdf8', fontSize: 10, align: 'center', bold: true } },
-      { text: String(est.dnb.admis), options: { color: '34d399', fontSize: 10, align: 'center', bold: true } },
-      { text: String(est.dnb.refuses), options: { color: 'cbd5e1', fontSize: 10, align: 'center' } },
-      { text: `${comp.totalMentions}`, options: { color: 'fbbf24', fontSize: 10, align: 'center' } },
-      { text: `${comp.tauxPresents}%`, options: { color: '60a5fa', fontSize: 11, align: 'center', bold: true } },
+      { text: est.dnbComplete === false ? 'N.R.' : String(est.dnb.inscrits), options: { color: 'ffffff', fontSize: 10, align: 'center' } },
+      { text: est.dnbComplete === false ? 'N.R.' : `${comp.tauxPresentation}%`, options: { color: '38bdf8', fontSize: 10, align: 'center', bold: true } },
+      { text: est.dnbComplete === false ? 'N.R.' : String(est.dnb.admis), options: { color: '34d399', fontSize: 10, align: 'center', bold: true } },
+      { text: est.dnbComplete === false ? 'N.R.' : String(est.dnb.refuses), options: { color: 'cbd5e1', fontSize: 10, align: 'center' } },
+      { text: est.dnbComplete === false ? 'N.R.' : `${comp.totalMentions}`, options: { color: 'fbbf24', fontSize: 10, align: 'center' } },
+      { text: est.dnbComplete === false ? 'N.R.' : `${comp.tauxPresents}%`, options: { color: '60a5fa', fontSize: 11, align: 'center', bold: true } },
     ]);
   });
 
@@ -245,6 +258,9 @@ export async function exportPresentationToPptx(session: SessionData) {
   // --------------------------------------------------------------------------
   // SLIDE 4 : Focus Mentions DNB Pro
   // --------------------------------------------------------------------------
+  }
+  if (settings.enabledSlides.mentions) {
+
   const slide4 = pptx.addSlide();
   slide4.background = { color: '0f172a' };
 
@@ -295,11 +311,14 @@ export async function exportPresentationToPptx(session: SessionData) {
   // --------------------------------------------------------------------------
   // SLIDE 5 : CFG Détail
   // --------------------------------------------------------------------------
+  }
+  if (settings.enabledSlides.cfg) {
+
   const slide5 = pptx.addSlide();
   slide5.background = { color: '0f172a' };
 
   slide5.addText('CERTIFICAT DE FORMATION GÉNÉRALE', { x: 1.0, y: 0.6, fontSize: 13, bold: true, color: '2dd4bf' });
-  slide5.addText('Le Premier Diplôme d’État (100% des élèves inscrits)', { x: 1.0, y: 1.0, fontSize: 24, bold: true, color: 'ffffff' });
+  slide5.addText('CFG : résultats des établissements renseignés', { x: 1.0, y: 1.0, fontSize: 24, bold: true, color: 'ffffff' });
 
   const cfgTableRows: pptxgenjs.TableRow[] = [
     [
@@ -319,10 +338,10 @@ export async function exportPresentationToPptx(session: SessionData) {
       { text: est.name, options: { color: 'ffffff', fontSize: 10 } },
       { text: est.bassin || 'Douaisis', options: { color: 'cbd5e1', fontSize: 9, align: 'center' } },
       { text: String(est.effectifClasse), options: { color: 'f59e0b', fontSize: 10, align: 'center', bold: true } },
-      { text: String(est.cfg.inscrits), options: { color: 'ffffff', fontSize: 10, align: 'center' } },
-      { text: String(est.cfg.admis), options: { color: '34d399', fontSize: 10, align: 'center', bold: true } },
-      { text: String(est.cfg.refuses), options: { color: 'cbd5e1', fontSize: 10, align: 'center' } },
-      { text: `${comp.tauxPresents}%`, options: { color: '2dd4bf', fontSize: 11, align: 'center', bold: true } },
+      { text: est.cfgComplete === false ? 'N.R.' : String(est.cfg.inscrits), options: { color: 'ffffff', fontSize: 10, align: 'center' } },
+      { text: est.cfgComplete === false ? 'N.R.' : String(est.cfg.admis), options: { color: '34d399', fontSize: 10, align: 'center', bold: true } },
+      { text: est.cfgComplete === false ? 'N.R.' : String(est.cfg.refuses), options: { color: 'cbd5e1', fontSize: 10, align: 'center' } },
+      { text: est.cfgComplete === false ? 'N.R.' : `${comp.tauxPresents}%`, options: { color: '2dd4bf', fontSize: 11, align: 'center', bold: true } },
     ]);
   });
 
@@ -337,6 +356,9 @@ export async function exportPresentationToPptx(session: SessionData) {
   // --------------------------------------------------------------------------
   // SLIDE 6 : Synthèse et Perspectives
   // --------------------------------------------------------------------------
+  }
+  if (settings.enabledSlides.comparison) {
+
   const slide6 = pptx.addSlide();
   slide6.background = { color: '0f172a' };
 
@@ -355,10 +377,10 @@ export async function exportPresentationToPptx(session: SessionData) {
 
   slide6.addText([
     { text: '1. Une diplomation massive et sécurisante au CFG :\n', options: { fontSize: 16, bold: true, color: '2dd4bf' } },
-    { text: `Sur l'ensemble du réseau, ${stats.cfg.admis} élèves sur ${stats.totalEffectifClasse} obtiennent leur diplôme d'État (${stats.cfg.tauxMoyenPresents}% de réussite), validant les compétences du socle commun avant leur orientation en LP ou CFA.\n\n`, options: { fontSize: 13, color: 'cbd5e1' } },
+    { text: `Parmi les ${stats.cfgRenseignes} établissement(s) renseigné(s), ${stats.cfg.admis} élèves sur ${stats.cfg.presents} présents ont obtenu le CFG (${cfgSuccess} de réussite).\n\n`, options: { fontSize: 13, color: 'cbd5e1' } },
 
     { text: '2. Un engagement soutenu au DNB Professionnel :\n', options: { fontSize: 16, bold: true, color: '60a5fa' } },
-    { text: `Avec un taux moyen d'inscription de ${stats.tauxMoyenPresentationDnb}% et un taux de réussite de ${stats.dnb.tauxMoyenPresents}%, le brevet professionnel confirme la capacité des élèves de SEGPA à réussir des épreuves certificatives nationales.\n\n`, options: { fontSize: 13, color: 'cbd5e1' } },
+    { text: `Sur les ${stats.dnbRenseignes} établissement(s) renseigné(s), ${stats.dnb.inscrits} élèves sur ${stats.dnbEffectifClasse} sont inscrits au DNB professionnel (${dnbPresentation}) ; le taux de réussite des présents est de ${dnbSuccess}.\n\n`, options: { fontSize: 13, color: 'cbd5e1' } },
 
     { text: '3. La valorisation par les mentions comme levier d’ambition :\n', options: { fontSize: 16, bold: true, color: 'f59e0b' } },
     { text: `${stats.dnb.totalMentions} mentions décernées dont ${stats.dnb.mentionsTB} mentions Très Bien, constituant un tremplin remarquable pour l'estime de soi et la réussite dans la voie professionnelle.`, options: { fontSize: 13, color: 'cbd5e1' } },
@@ -368,6 +390,8 @@ export async function exportPresentationToPptx(session: SessionData) {
     w: 10.2,
     h: 4.2,
   });
+
+  }
 
   // Sauvegarde du fichier .pptx (100% compatible LibreOffice Impress et PowerPoint)
   const filename = `StatSEGPA_Presentation_${session.year.replace(/\s+/g, '_')}.pptx`;

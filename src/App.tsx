@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { SessionData, Establishment, ColleagueSubmission, COLLEGE_PALETTE, DEFAULT_REGIONS } from './types';
-import { initialSessionData } from './data/mockData';
+import { initialSessionData, DEFAULT_SESSIONS } from './data/mockData';
 import { Header } from './components/Header';
 import { TableView } from './components/TableView';
 import { DashboardView } from './components/DashboardView';
+import { HistoryView } from './components/HistoryView';
+import { version as appVersion } from '../package.json';
 import { ReviewInboxView } from './components/ReviewInboxView';
 import { PresentationMode } from './components/PresentationMode';
 import { PrintReport } from './components/PrintReport';
@@ -12,8 +14,11 @@ import { EstablishmentEditModal } from './components/EstablishmentEditModal';
 import { TeacherSubmissionModal } from './components/TeacherSubmissionModal';
 import { RegionManageModal } from './components/RegionManageModal';
 import { ShieldCheck, Accessibility } from 'lucide-react';
+import { loadStoredSessions } from './utils/sessionStorage';
 
 const STORAGE_KEY = 'statsegpa_session_v1';
+const SESSIONS_KEY = 'statsegpa_sessions_v1';
+const SELECTED_YEAR_KEY = 'statsegpa_selected_year_v1';
 const THEME_KEY = 'statsegpa_theme';
 const BASSIN_KEY = 'statsegpa_bassin_filter';
 
@@ -60,42 +65,60 @@ export const App: React.FC = () => {
     } catch {}
   }, [bassinFilter]);
 
-  // Session
-  const [session, setSession] = useState<SessionData>(() => {
+  // Une sauvegarde existante est l'autorité ; les exemples ne sont chargés qu'au premier démarrage.
+  const [initialStorage] = useState(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.establishments && parsed.establishments.length > 0) {
-          parsed.establishments = parsed.establishments.map((e: any, idx: number) => ({
-            ...e,
-            bassin: e.bassin || (idx >= 11 ? 'Cambrésis' : 'Douaisis'),
-            effectifClasse: e.effectifClasse || e.cfg?.inscrits || 14,
-            color: e.color || COLLEGE_PALETTE[idx % COLLEGE_PALETTE.length],
-          }));
-          return parsed;
-        }
-      }
-    } catch (e) {
-      console.warn('Erreur lors du chargement des données locales:', e);
+      return {
+        sessions: loadStoredSessions(
+          localStorage.getItem(SESSIONS_KEY),
+          localStorage.getItem(STORAGE_KEY),
+          DEFAULT_SESSIONS,
+        ),
+        readError: null as string | null,
+      };
+    } catch (error) {
+      console.error('Impossible de lire les sessions sauvegardées', error);
+      return {
+        sessions: { ...DEFAULT_SESSIONS },
+        readError: 'Les sessions stockées sont illisibles : elles n’ont pas été écrasées. Restaurez une sauvegarde JSON avant toute saisie.',
+      };
     }
-    return initialSessionData;
   });
-
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'table' | 'review' | 'presentation' | 'print'>('dashboard');
+  const [sessions, setSessions] = useState<Record<string, SessionData>>(initialStorage.sessions);
+  const [storageReadError, setStorageReadError] = useState<string | null>(initialStorage.readError);
+  const [storageWriteError, setStorageWriteError] = useState(false);
+  const [activeYear, setActiveYear] = useState(() => {
+    try {
+      const saved = localStorage.getItem(SELECTED_YEAR_KEY);
+      if (saved && sessions[saved]) return saved;
+    } catch {}
+    return sessions['2026'] ? '2026' : Object.keys(sessions).sort()[0];
+  });
+  const session = sessions[activeYear] || Object.values(sessions)[0] || initialSessionData;
+  const setSession: React.Dispatch<React.SetStateAction<SessionData>> = (value) => {
+    setSessions((prev) => {
+      const current = prev[activeYear] || session;
+      const next = typeof value === 'function' ? value(current) : value;
+      return { ...prev, [activeYear]: next };
+    });
+  };
+  useEffect(() => {
+    if (storageReadError) return; // Ne jamais écraser une sauvegarde illisible.
+    try {
+      localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+      setStorageWriteError(false);
+    } catch (error) {
+      console.error('Sauvegarde locale impossible', error);
+      setStorageWriteError(true);
+    }
+  }, [sessions, storageReadError]);
+  useEffect(() => { try { localStorage.setItem(SELECTED_YEAR_KEY, activeYear); } catch {} }, [activeYear]);
+  const [currentTab, setCurrentTab] = useState<'dashboard' | 'history' | 'table' | 'review' | 'presentation' | 'print'>('dashboard');
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [isTeacherFormOpen, setIsTeacherFormOpen] = useState(false);
   const [isRegionManagerOpen, setIsRegionManagerOpen] = useState(false);
   const [editingEstablishment, setEditingEstablishment] = useState<Establishment | null>(null);
 
-  // Sauvegarde automatique dans le LocalStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-    } catch (e) {
-      console.error('Erreur lors de la sauvegarde locale:', e);
-    }
-  }, [session]);
 
   // Session filtrée selon le bassin actif (Douaisis, Cambrésis, ou Toute région personnalisée, ou Tous)
   const activeSession = useMemo<SessionData>(() => {
@@ -103,14 +126,36 @@ export const App: React.FC = () => {
     const count = session.establishments.filter((e) => e.bassin === bassinFilter).length;
     return {
       ...session,
-      bassinName: `Bassin ${bassinFilter} (${count} collège${count > 1 ? 's' : ''})`,
+      bassinName: `Bassin d'éducation et de formation SEGPA du ${bassinFilter} (${count} collège${count > 1 ? 's' : ''})`,
       establishments: session.establishments.filter((e) => e.bassin === bassinFilter),
     };
   }, [session, bassinFilter]);
 
+  const handleCreateYear = () => {
+    const value = window.prompt('Année de la nouvelle session (ex. 2027) :');
+    if (value === null) return;
+    const year = value.trim();
+    if (!/^20\d{2}$/.test(year)) { alert('Indiquez une année de quatre chiffres commençant par 20.'); return; }
+    if (sessions[year]) { setActiveYear(year); return; }
+    const newSession: SessionData = {
+      id: `session-${year}`, year: `Session ${year}`, bassinName: session.bassinName,
+      regions: (session.regions || DEFAULT_REGIONS).map((r) => ({ ...r })),
+      establishments: [], submissions: [], notes: 'Nouvelle session à compléter',
+      lastUpdated: new Date().toISOString(),
+    };
+    setSessions((prev) => ({ ...prev, [year]: newSession }));
+    setActiveYear(year);
+    setBassinFilter('all');
+    setCurrentTab('table');
+  };
+
   const handleResetData = () => {
     if (confirm("Voulez-vous recharger l'exemple officiel des collèges du Douaisis et du Cambrésis ?")) {
-      setSession(initialSessionData);
+      setSession(DEFAULT_SESSIONS[activeYear] || {
+        id: `session-${activeYear}`, year: `Session ${activeYear}`, bassinName: session.bassinName,
+        regions: session.regions || DEFAULT_REGIONS, establishments: [], submissions: [],
+        lastUpdated: new Date().toISOString(),
+      });
     }
   };
 
@@ -133,12 +178,21 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans text-slate-800 dark:text-slate-100 transition-colors duration-200">
+      {(storageReadError || storageWriteError) && (
+        <div role="alert" className="p-4 bg-red-50 dark:bg-red-950 border-b-2 border-red-500 text-red-900 dark:text-red-100 font-bold text-sm">
+          {storageReadError || 'Sauvegarde locale impossible : les dernières modifications risquent d’être perdues. Exportez immédiatement une sauvegarde JSON.'}
+        </div>
+      )}
       {/* En-tête de navigation avec sélecteur de bassin */}
       <Header
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
         session={session}
         setSession={setSession}
+        availableYears={Object.keys(sessions).sort((x, y) => Number(y) - Number(x))}
+        activeYear={activeYear}
+        onChangeYear={setActiveYear}
+        onCreateYear={handleCreateYear}
         bassinFilter={bassinFilter}
         setBassinFilter={setBassinFilter}
         isDark={isDark}
@@ -152,10 +206,12 @@ export const App: React.FC = () => {
       {/* Contenu principal */}
       <main id="main-content" tabIndex={-1} className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 w-full focus:outline-hidden">
         {currentTab === 'dashboard' && <DashboardView session={activeSession} isDark={isDark} />}
+        {currentTab === 'history' && <HistoryView sessions={sessions} bassinFilter={bassinFilter} />}
         {currentTab === 'table' && (
           <TableView
             session={activeSession}
             setSession={setSession}
+            currentBassin={bassinFilter}
             onEditEstablishment={(est) => setEditingEstablishment(est)}
           />
         )}
@@ -199,7 +255,9 @@ export const App: React.FC = () => {
         isOpen={isTeacherFormOpen}
         onClose={() => setIsTeacherFormOpen(false)}
         onSubmit={handleNewTeacherSubmission}
-        existingEstablishmentNames={session.establishments.map((e) => e.name)}
+        existingEstablishments={session.establishments}
+        regions={session.regions || DEFAULT_REGIONS}
+        defaultBassin={bassinFilter === 'all' ? (session.regions || DEFAULT_REGIONS)[0]?.name || 'Douaisis' : bassinFilter}
       />
 
       {/* Modal Import / Export Excel */}
@@ -208,6 +266,14 @@ export const App: React.FC = () => {
         onClose={() => setIsImportExportOpen(false)}
         session={session}
         setSession={setSession}
+        sessions={sessions}
+        activeYear={activeYear}
+        onRestoreAll={(newSessions, year) => {
+          setSessions(newSessions);
+          setStorageReadError(null);
+          setActiveYear(year);
+          setBassinFilter('all');
+        }}
       />
 
       {/* Pied de page informatif */}
@@ -216,16 +282,17 @@ export const App: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="font-bold text-slate-700 dark:text-slate-200">StatSEGPA</span>
             <span>• Outil de pilotage & analyse statistique DNB Pro & CFG</span>
+            <span className="font-mono text-[11px]" aria-label="Version de StatSEGPA">v{appVersion} ({__BUILD_ID__})</span>
           </div>
 
           <div className="flex items-center gap-4 text-[11px] flex-wrap justify-center sm:justify-end">
             <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300 font-medium bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-              100% Hors-Ligne & RGPD Conforme
+              Stockage local dans ce navigateur
             </span>
             <span className="inline-flex items-center gap-1 text-blue-700 dark:text-blue-300 font-medium bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
               <Accessibility className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" aria-hidden="true" />
-              Conforme W3C • RGAA 4.1.2 • WCAG 2.1 AA
+              Accessibilité à vérifier
             </span>
             <button
               onClick={() => setCurrentTab('table')}

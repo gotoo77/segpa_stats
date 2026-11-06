@@ -14,9 +14,10 @@ interface TableViewProps {
   session: SessionData;
   setSession: React.Dispatch<React.SetStateAction<SessionData>>;
   onEditEstablishment?: (est: Establishment) => void;
+  currentBassin: string;
 }
 
-export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEditEstablishment }) => {
+export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEditEstablishment, currentBassin }) => {
   const [activeSubTab, setActiveSubTab] = useState<'both' | 'dnb' | 'cfg'>('both');
   const [quickSearch, setQuickSearch] = useState('');
 
@@ -24,6 +25,13 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
   const bassinStats = calculateBassinStats(establishments);
 
   const handleUpdate = (id: string, path: string[], value: any) => {
+    if ((path[0] === 'dnbComplete' || path[0] === 'cfgComplete') && value === true) {
+      const est = session.establishments.find(e => e.id === id);
+      if (est) {
+        const errors = path[0] === 'dnbComplete' ? computeDnb(est.dnb, est.effectifClasse).errors : computeCfg(est.cfg, est.effectifClasse).errors;
+        if (errors.length) { alert('Corriger les chiffres avant validation :\n' + errors.join('\n')); return; }
+      }
+    }
     setSession((prev) => {
       const updated = prev.establishments.map((est) => {
         if (est.id !== id) return est;
@@ -54,19 +62,13 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
       id: `segpa-${Date.now()}`,
       name: `Collège ${String.fromCharCode(64 + (nextNumber % 26 || 1))}`,
       city: '',
+      bassin: currentBassin === 'all' ? session.regions?.[0]?.name || 'Douaisis' : currentBassin,
       color,
       effectifClasse: 14,
-      dnb: {
-        inscrits: 12,
-        admis: 10,
-        refuses: 2,
-        mentions: { ab: 3, b: 2, tb: 0 },
-      },
-      cfg: {
-        inscrits: 14,
-        admis: 13,
-        refuses: 1,
-      },
+      dnbComplete: false,
+      cfgComplete: false,
+      dnb: { inscrits: 0, admis: 0, refuses: 0, mentions: { ab: 0, b: 0, tb: 0 } },
+      cfg: { inscrits: 14, admis: 0, refuses: 0 },
     };
     setSession((prev) => ({
       ...prev,
@@ -76,10 +78,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
   };
 
   const handleDeleteEstablishment = (id: string) => {
-    if (establishments.length <= 1) {
-      alert("Il faut au minimum un établissement dans la session.");
-      return;
-    }
+    if (!confirm('Supprimer cet établissement et ses résultats ?')) return;
     setSession((prev) => ({
       ...prev,
       establishments: prev.establishments.filter((e) => e.id !== id),
@@ -94,6 +93,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
 
   return (
     <div className="space-y-8 pb-12 transition-colors">
+      <p className="text-xs text-slate-600 dark:text-slate-300">Couverture : DNB {bassinStats.dnbRenseignes}/{bassinStats.totalEtablissements} établissements, CFG {bassinStats.cfgRenseignes}/{bassinStats.totalEtablissements}. « N.R. » = résultats non renseignés (différent de 0 %).</p>
       {/* Barre d'outils du tableau */}
       <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -173,7 +173,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
               <span className="text-xs bg-white/20 px-2.5 py-0.5 rounded-full font-medium">Diplôme National du Brevet série Pro</span>
             </div>
             <div className="text-xs text-blue-100 font-medium">
-              Présentation bassin : <span className="font-bold text-white text-sm">{bassinStats.tauxMoyenPresentationDnb}%</span> • Réussite : <span className="font-bold text-white text-sm">{bassinStats.dnb.tauxMoyenPresents}%</span>
+              Présentation bassin : <span className="font-bold text-white text-sm">{bassinStats.dnbRenseignes ? bassinStats.tauxMoyenPresentationDnb + '%' : 'N.R.'}</span> • Réussite : <span className="font-bold text-white text-sm">{bassinStats.dnbRenseignes ? bassinStats.dnb.tauxMoyenPresents + '%' : 'N.R.'}</span>
             </div>
           </div>
 
@@ -230,6 +230,9 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
                             onChange={(e) => handleUpdate(est.id, ['name'], e.target.value)}
                             className="w-full font-semibold text-slate-900 dark:text-white bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 px-2 py-1 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-blue-500 focus:outline-hidden"
                           />
+                          <label className="inline-flex items-center gap-1 text-[10px] whitespace-nowrap" title="Cochez quand les résultats DNB sont connus, même si le nombre d'admis est zéro">
+                            <input type="checkbox" aria-label={'DNB renseigné pour ' + est.name} checked={est.dnbComplete !== false} onChange={e => handleUpdate(est.id, ['dnbComplete'], e.target.checked)} /> Renseigné
+                          </label>
                           {hasError && (
                             <span title={computed.errors.join(' | ')} className="text-amber-500 cursor-help" aria-label="Erreur détectée dans les chiffres">
                               <AlertCircle className="w-4 h-4" />
@@ -346,7 +349,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
                       {/* % Inscrits (Auto calculé) */}
                       <td className="py-2.5 px-3 text-center bg-blue-50/40 dark:bg-blue-950/20 border-x border-slate-200 dark:border-slate-700 font-bold text-blue-800 dark:text-blue-300">
                         <span className={`inline-block px-2 py-0.5 rounded ${computed.tauxInscrits >= 80 ? 'bg-blue-100 dark:bg-blue-900/60 text-blue-900 dark:text-blue-200' : 'text-slate-700 dark:text-slate-300'}`}>
-                          {computed.tauxInscrits} %
+                          {est.dnbComplete === false ? 'N.R.' : computed.tauxInscrits + ' %'}
                         </span>
                       </td>
 
@@ -359,7 +362,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
                             ? 'bg-indigo-100 dark:bg-indigo-900/60 text-indigo-900 dark:text-indigo-200' 
                             : 'bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300'
                         }`}>
-                          {computed.tauxPresents} %
+                          {est.dnbComplete === false ? 'N.R.' : computed.tauxPresents + ' %'}
                         </span>
                       </td>
 
@@ -396,11 +399,11 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
                 <tr className="bg-slate-800 text-white font-bold border-t-2 border-slate-900">
                   <td className="py-3 px-4 uppercase text-xs tracking-wider">TOTAL / MOYENNE BASSIN</td>
                   <td className="py-3 px-3 text-center bg-amber-950 text-amber-200 border-x border-slate-700">
-                    {bassinStats.totalEffectifClasse}
+                    {bassinStats.dnbEffectifClasse}
                   </td>
                   <td className="py-3 px-3 text-center text-slate-200">
                     {bassinStats.dnb.inscrits}
-                    <span className="block text-[9px] text-slate-400 font-normal">({bassinStats.tauxMoyenPresentationDnb}% classe)</span>
+                    <span className="block text-[9px] text-slate-400 font-normal">({bassinStats.dnbRenseignes ? bassinStats.tauxMoyenPresentationDnb + '%' : 'N.R.'} classe)</span>
                   </td>
                   <td className="py-3 px-3 text-center text-emerald-300 font-extrabold">{bassinStats.dnb.admis}</td>
                   <td className="py-3 px-3 text-center text-slate-300">{bassinStats.dnb.refuses}</td>
@@ -414,7 +417,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
                     {bassinStats.dnb.tauxMoyenInscrits} %
                   </td>
                   <td className="py-3 px-3 text-center bg-indigo-900 text-indigo-100 text-sm font-extrabold">
-                    {bassinStats.dnb.tauxMoyenPresents} %
+                    {bassinStats.dnbRenseignes ? bassinStats.dnb.tauxMoyenPresents + ' %' : 'N.R.'}
                   </td>
                   <td className="no-print"></td>
                 </tr>
@@ -435,7 +438,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
               <span className="text-xs bg-white/20 px-2.5 py-0.5 rounded-full font-medium">Certificat de Formation Générale (Tous les élèves inscrits)</span>
             </div>
             <div className="text-xs text-emerald-100 font-medium">
-              Moyenne bassin : <span className="font-bold text-white text-sm">{bassinStats.cfg.tauxMoyenPresents}%</span> de réussite
+              Moyenne bassin : <span className="font-bold text-white text-sm">{bassinStats.cfgRenseignes ? bassinStats.cfg.tauxMoyenPresents + '%' : 'N.R.'}</span> de réussite
             </div>
           </div>
 
@@ -488,6 +491,9 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
                             onChange={(e) => handleUpdate(est.id, ['name'], e.target.value)}
                             className="w-full font-semibold text-slate-900 dark:text-white bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 px-2 py-1 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-emerald-500 focus:outline-hidden"
                           />
+                          <label className="inline-flex items-center gap-1 text-[10px] whitespace-nowrap" title="Cochez quand les résultats CFG sont connus">
+                            <input type="checkbox" aria-label={'CFG renseigné pour ' + est.name} checked={est.cfgComplete !== false} onChange={e => handleUpdate(est.id, ['cfgComplete'], e.target.checked)} /> Renseigné
+                          </label>
                           {hasError && (
                             <span title={computed.errors.join(' | ')} className="text-amber-500 cursor-help" aria-label="Erreur détectée">
                               <AlertCircle className="w-4 h-4" />
@@ -549,7 +555,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
                       {/* % Inscrits (Auto calculé) */}
                       <td className="py-2.5 px-3 text-center bg-emerald-50/40 dark:bg-emerald-950/20 border-x border-slate-200 dark:border-slate-700 font-bold text-emerald-800 dark:text-emerald-300">
                         <span className={`inline-block px-2 py-0.5 rounded ${computed.tauxInscrits >= 90 ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200' : 'text-slate-700 dark:text-slate-300'}`}>
-                          {computed.tauxInscrits} %
+                          {est.cfgComplete === false ? 'N.R.' : computed.tauxInscrits + ' %'}
                         </span>
                       </td>
 
@@ -562,7 +568,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
                             ? 'bg-teal-100 dark:bg-teal-900/60 text-teal-900 dark:text-teal-200' 
                             : 'bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300'
                         }`}>
-                          {computed.tauxPresents} %
+                          {est.cfgComplete === false ? 'N.R.' : computed.tauxPresents + ' %'}
                         </span>
                       </td>
 
@@ -599,7 +605,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
                 <tr className="bg-slate-800 text-white font-bold border-t-2 border-slate-900">
                   <td className="py-3 px-4 uppercase text-xs tracking-wider">TOTAL / MOYENNE BASSIN</td>
                   <td className="py-3 px-3 text-center bg-amber-950 text-amber-200 border-x border-slate-700">
-                    {bassinStats.totalEffectifClasse}
+                    {bassinStats.cfgEffectifClasse}
                   </td>
                   <td className="py-3 px-3 text-center text-slate-200">{bassinStats.cfg.inscrits}</td>
                   <td className="py-3 px-3 text-center text-emerald-300 font-extrabold">{bassinStats.cfg.admis}</td>
@@ -608,7 +614,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
                     {bassinStats.cfg.tauxMoyenInscrits} %
                   </td>
                   <td className="py-3 px-3 text-center bg-teal-900 text-teal-100 text-sm font-extrabold">
-                    {bassinStats.cfg.tauxMoyenPresents} %
+                    {bassinStats.cfgRenseignes ? bassinStats.cfg.tauxMoyenPresents + ' %' : 'N.R.'}
                   </td>
                   <td className="no-print"></td>
                 </tr>

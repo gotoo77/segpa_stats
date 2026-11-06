@@ -13,11 +13,13 @@ import {
   Download,
   Copy,
   Presentation,
+  Settings2,
   Check
 } from 'lucide-react';
 import { toPng, toBlob } from 'html-to-image';
-import { SessionData } from '../types';
+import { SessionData, PresentationSettings, DEFAULT_PRESENTATION_SETTINGS } from '../types';
 import { calculateBassinStats, computeDnb, computeCfg } from '../utils/calculations';
+import { collectDataIssues } from '../utils/dataIntegrity';
 import { exportPresentationToPptx } from '../utils/pptxExport';
 
 interface PresentationModeProps {
@@ -26,7 +28,31 @@ interface PresentationModeProps {
 }
 
 export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onClose }) => {
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const [slidePosition, setSlidePosition] = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState<PresentationSettings>(() => {
+    try {
+      const raw = localStorage.getItem('statsegpa_presentation_settings_v1');
+      if (!raw) return DEFAULT_PRESENTATION_SETTINGS;
+      const parsed = JSON.parse(raw) as Partial<PresentationSettings>;
+      return { ...DEFAULT_PRESENTATION_SETTINGS, ...parsed, enabledSlides: { ...DEFAULT_PRESENTATION_SETTINGS.enabledSlides, ...parsed.enabledSlides } };
+    } catch { return DEFAULT_PRESENTATION_SETTINGS; }
+  });
+  const slideKeys: Array<keyof PresentationSettings['enabledSlides']> = ['intro', 'kpis', 'dnb', 'mentions', 'cfg', 'comparison'];
+  const enabledIndices = slideKeys.map((key, index) => settings.enabledSlides[key] ? index : -1).filter((index) => index >= 0);
+  const currentSlide = enabledIndices[slidePosition] ?? enabledIndices[0] ?? 0;
+  const totalSlides = enabledIndices.length;
+  const displayBadge = settings.badge.trim() || session.bassinName;
+  const updateSettings = (newSettings: PresentationSettings) => {
+    setSettings(newSettings);
+    try { localStorage.setItem('statsegpa_presentation_settings_v1', JSON.stringify(newSettings)); } catch {}
+  };
+  const updateSlideEnabled = (key: keyof PresentationSettings['enabledSlides'], enabled: boolean) => {
+    const next = { ...settings.enabledSlides, [key]: enabled };
+    if (!Object.values(next).some(Boolean)) return;
+    updateSettings({ ...settings, enabledSlides: next });
+    setSlidePosition(0);
+  };
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isExportingPptx, setIsExportingPptx] = useState(false);
   const [copiedStatus, setCopiedStatus] = useState(false);
@@ -35,11 +61,10 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
 
   const establishments = session.establishments;
   const stats = calculateBassinStats(establishments);
+  const dataIssues = collectDataIssues(establishments);
 
-  const totalSlides = 6;
-
-  const nextSlide = () => setCurrentSlide((prev) => Math.min(prev + 1, totalSlides - 1));
-  const prevSlide = () => setCurrentSlide((prev) => Math.max(prev - 1, 0));
+  const nextSlide = () => setSlidePosition((prev) => Math.min(prev + 1, totalSlides - 1));
+  const prevSlide = () => setSlidePosition((prev) => Math.max(prev - 1, 0));
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -53,7 +78,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [totalSlides, onClose]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -67,7 +92,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
 
   // 1. Exporter la diapositive active en image PNG HD
   const handleExportCurrentSlidePng = async () => {
-    if (!slideRef.current) return;
+    if (!slideRef.current || dataIssues.length) return;
     try {
       const dataUrl = await toPng(slideRef.current, { quality: 0.98, pixelRatio: 2 });
       const link = document.createElement('a');
@@ -82,7 +107,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
 
   // 2. Copier la diapositive active directement dans le presse-papier
   const handleCopyCurrentSlide = async () => {
-    if (!slideRef.current) return;
+    if (!slideRef.current || dataIssues.length) return;
     try {
       const blob = await toBlob(slideRef.current, { quality: 0.98, pixelRatio: 2 });
       if (blob && navigator.clipboard && (window as any).ClipboardItem) {
@@ -102,9 +127,10 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
 
   // 3. Exporter toute la présentation au format LibreOffice Impress / PowerPoint (.pptx)
   const handleExportPptx = async () => {
+    if (dataIssues.length) return;
     try {
       setIsExportingPptx(true);
-      await exportPresentationToPptx(session);
+      await exportPresentationToPptx(session, settings);
     } catch (e: any) {
       console.error(e);
       alert(`Erreur lors de l'export de la présentation : ${e.message}`);
@@ -123,18 +149,27 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
           </div>
           <div>
             <span className="text-xs font-semibold tracking-wider text-blue-400 uppercase">
-              {session.bassinName}
+              {displayBadge}
             </span>
             <h2 className="text-sm font-bold text-slate-200">{session.year} — Bilan officiel</h2>
           </div>
         </div>
 
         {/* BOUTONS D'EXPORT SUR CHAQUE ÉCRAN */}
+          <button
+            type="button"
+            onClick={() => setShowSettings((value) => !value)}
+            aria-expanded={showSettings}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold border border-slate-600"
+          >
+            <Settings2 className="w-4 h-4" /> Paramétrer
+          </button>
+
         <div className="flex items-center gap-2 flex-wrap">
           {/* Bouton Exporter toute la présentation LibreOffice / PowerPoint */}
           <button
             onClick={handleExportPptx}
-            disabled={isExportingPptx}
+            disabled={isExportingPptx || dataIssues.length > 0}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-xs transition"
             title="Télécharger toute la présentation (.pptx) prête à ouvrir dans LibreOffice Impress ou PowerPoint"
           >
@@ -145,6 +180,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
           {/* Bouton Capturer cette slide en image */}
           <button
             onClick={handleExportCurrentSlidePng}
+            disabled={dataIssues.length > 0}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition"
             title="Télécharger cette diapositive en image HD (PNG)"
           >
@@ -155,6 +191,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
           {/* Bouton Copier dans le presse-papier */}
           <button
             onClick={handleCopyCurrentSlide}
+            disabled={dataIssues.length > 0}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition"
             title="Copier l'image de cette diapositive pour la coller (Ctrl+V) directement dans LibreOffice ou PowerPoint"
           >
@@ -165,7 +202,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
           <div className="h-4 w-px bg-slate-800 mx-1 hidden sm:block" />
 
           <span className="text-xs text-slate-400 font-mono hidden sm:inline">
-            Slide {currentSlide + 1} / {totalSlides}
+            Slide {slidePosition + 1} / {totalSlides}
           </span>
           <button
             onClick={toggleFullscreen}
@@ -184,6 +221,33 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
         </div>
       </div>
 
+      {showSettings && (
+        <div className="absolute top-20 right-4 sm:right-8 z-50 w-[min(24rem,calc(100vw-2rem))] max-h-[70vh] overflow-y-auto p-4 space-y-3 bg-slate-900 text-white border border-slate-600 shadow-2xl rounded-2xl text-xs">
+          <div className="flex justify-between items-center"><h3 className="font-bold text-sm">Réglages de la présentation</h3><button onClick={() => setShowSettings(false)} aria-label="Fermer les réglages"><X className="w-4 h-4" /></button></div>
+          {([['title', 'Titre'], ['badge', 'Bassin / sur-titre (vide = session courante)'], ['subtitle', 'Sous-titre'], ['presenter', 'Présentateur'], ['closingMessage', 'Message final']] as const).map(([key, label]) => (
+            <label key={key} className="block space-y-1"><span className="block text-slate-300">{label}</span>
+              <input value={settings[key]} onChange={(e) => updateSettings({ ...settings, [key]: e.target.value })}
+                placeholder={key === 'badge' ? session.bassinName : undefined}
+                className="w-full rounded-lg bg-slate-800 border border-slate-600 px-2 py-1.5 text-white" />
+            </label>
+          ))}
+          <fieldset className="border-t border-slate-700 pt-3 space-y-2"><legend className="font-bold pt-2">Diapositives visibles</legend>
+            {slideKeys.map((key) => (
+              <label key={key} className="flex items-center gap-2"><input type="checkbox" checked={settings.enabledSlides[key]} onChange={(e) => updateSlideEnabled(key, e.target.checked)} />
+                <span>{({ intro: 'Introduction', kpis: 'Chiffres clés', dnb: 'DNB Pro', mentions: 'Mentions', cfg: 'CFG', comparison: 'Synthèse' } as const)[key]}</span>
+              </label>
+            ))}
+          </fieldset>
+          <button type="button" className="text-blue-300 underline" onClick={() => { updateSettings(DEFAULT_PRESENTATION_SETTINGS); setSlidePosition(0); }}>Restaurer les réglages par défaut</button>
+        </div>
+      )}
+      <p className="sr-only">Couverture : DNB {stats.dnbRenseignes}/{stats.totalEtablissements}, CFG {stats.cfgRenseignes}/{stats.totalEtablissements}.</p>
+      {dataIssues.length > 0 && (
+        <div role="alert" className="bg-red-950 text-red-100 border-2 border-red-500 rounded-lg p-3 text-xs max-h-32 overflow-auto">
+          <strong>Présentation non validée : exports désactivés tant que les résultats sont incohérents.</strong>
+          <ul className="list-disc ml-5 mt-1">{dataIssues.map((issue, i) => <li key={i}>{issue}</li>)}</ul>
+        </div>
+      )}
       {/* Contenu de la diapositive active (capturable en haute fidélité) */}
       <div
         ref={slideRef}
@@ -194,17 +258,18 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
           <div className="text-center space-y-6 animate-fade-in w-full">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-900/60 text-blue-300 border border-blue-700/50 text-sm font-medium">
               <Sparkles className="w-4 h-4 text-blue-400" />
-              Direction & Coordination de Réseau SEGPA
+              {settings.subtitle}
             </div>
             <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-white leading-tight">
-              Bilan des Résultats aux Examens
+              {settings.title}
               <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-teal-300">
                 DNB Professionnel & CFG
               </span>
             </h1>
             <p className="text-xl sm:text-2xl text-slate-400 font-light max-w-3xl mx-auto">
-              {session.bassinName} • {session.year}
+              {displayBadge} • {session.year}
             </p>
+            {settings.presenter.trim() && <p className="text-sm text-slate-300">{settings.presenter}</p>}
             <div className="pt-8 flex justify-center gap-6 text-sm text-slate-400 flex-wrap">
               <div className="bg-slate-900/90 border border-slate-800 px-6 py-3 rounded-2xl">
                 <span className="block text-2xl font-bold text-white">{stats.totalEtablissements}</span>
@@ -215,7 +280,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
                 <span>Élèves en 3e SEGPA</span>
               </div>
               <div className="bg-slate-900/90 border border-slate-800 px-6 py-3 rounded-2xl">
-                <span className="block text-2xl font-bold text-indigo-400">{stats.tauxMoyenPresentationDnb}%</span>
+                <span className="block text-2xl font-bold text-indigo-400">{stats.dnbRenseignes ? stats.tauxMoyenPresentationDnb + '%' : 'N.R.'}</span>
                 <span>Présentation au DNB Pro</span>
               </div>
             </div>
@@ -235,12 +300,12 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
                   <h3 className="text-xl font-bold text-blue-300">DNB Professionnel</h3>
                   <TrendingUp className="w-6 h-6 text-blue-400" />
                 </div>
-                <div className="text-6xl font-black text-white">{stats.dnb.tauxMoyenPresents}%</div>
+                <div className="text-6xl font-black text-white">{stats.dnbRenseignes ? stats.dnb.tauxMoyenPresents + '%' : 'N.R.'}</div>
                 <div className="text-sm text-slate-400 mt-2">de réussite sur les candidats présents</div>
                 <div className="mt-6 pt-4 border-t border-slate-800 space-y-2 text-sm">
                   <div className="flex justify-between text-slate-300">
                     <span>Taux d'inscription :</span>
-                    <strong className="text-indigo-400">{stats.tauxMoyenPresentationDnb}% de la classe ({stats.dnb.inscrits}/{stats.totalEffectifClasse})</strong>
+                    <strong className="text-indigo-400">{stats.dnbRenseignes ? stats.tauxMoyenPresentationDnb + '%' : 'N.R.'} de la classe ({stats.dnb.inscrits}/{stats.dnbEffectifClasse}, collèges renseignés)</strong>
                   </div>
                   <div className="flex justify-between text-slate-300">
                     <span>Candidats admis :</span>
@@ -258,12 +323,12 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
                   <h3 className="text-xl font-bold text-teal-300">Certificat de Formation Générale</h3>
                   <CheckCircle2 className="w-6 h-6 text-teal-400" />
                 </div>
-                <div className="text-6xl font-black text-white">{stats.cfg.tauxMoyenPresents}%</div>
+                <div className="text-6xl font-black text-white">{stats.cfgRenseignes ? stats.cfg.tauxMoyenPresents + '%' : 'N.R.'}</div>
                 <div className="text-sm text-slate-400 mt-2">de réussite sur l'effectif total</div>
                 <div className="mt-6 pt-4 border-t border-slate-800 space-y-2 text-sm">
                   <div className="flex justify-between text-slate-300">
                     <span>Inscription :</span>
-                    <strong className="text-emerald-400">100% des élèves de 3e SEGPA</strong>
+                    <strong className="text-emerald-400">{stats.cfg.inscrits} inscrits / {stats.cfgEffectifClasse} élèves (collèges renseignés)</strong>
                   </div>
                   <div className="flex justify-between text-slate-300">
                     <span>Candidats admis :</span>
@@ -272,7 +337,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
                   <div className="flex justify-between text-slate-300">
                     <span>Collèges à 100% :</span>
                     <strong className="text-teal-300">
-                      {establishments.filter((e) => computeCfg(e.cfg, e.effectifClasse).tauxPresents === 100).length} sur {establishments.length}
+                      {establishments.filter((e) => e.cfgComplete !== false && computeCfg(e.cfg, e.effectifClasse).tauxPresents === 100).length} sur {establishments.length}
                     </strong>
                   </div>
                 </div>
@@ -291,7 +356,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
               </div>
               <div className="bg-blue-900/60 border border-blue-600 px-4 py-2 rounded-xl text-right">
                 <span className="text-xs text-blue-300 block">Moyenne Réussite</span>
-                <span className="text-2xl font-bold text-white">{stats.dnb.tauxMoyenPresents}%</span>
+                <span className="text-2xl font-bold text-white">{stats.dnbRenseignes ? stats.dnb.tauxMoyenPresents + '%' : 'N.R.'}</span>
               </div>
             </div>
 
@@ -308,14 +373,14 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
                         </div>
                       </div>
                       <div className="my-2 flex items-baseline gap-2">
-                        <span className={`text-2xl font-black ${comp.tauxPresents >= 85 ? 'text-emerald-400' : comp.tauxPresents >= 70 ? 'text-blue-400' : 'text-amber-400'}`}>
-                          {comp.tauxPresents}%
+                        <span className={`text-2xl font-black ${est.dnbComplete === false ? 'text-slate-400' : comp.tauxPresents >= 85 ? 'text-emerald-400' : comp.tauxPresents >= 70 ? 'text-blue-400' : 'text-amber-400'}`}>
+                          {est.dnbComplete === false ? 'N.R.' : comp.tauxPresents + '%'}
                         </span>
-                        <span className="text-[10px] text-slate-400">({est.dnb.admis}/{est.dnb.inscrits})</span>
+                        <span className="text-[10px] text-slate-400">{est.dnbComplete === false ? 'Données en attente' : `(${est.dnb.admis}/${est.dnb.inscrits})`}</span>
                       </div>
                       <div className="text-[10px] text-slate-400 flex justify-between border-t border-slate-900 pt-1 mt-1">
                         <span>Présentés :</span>
-                        <strong className="text-indigo-400">{comp.tauxPresentation}% classe</strong>
+                        <strong className="text-indigo-400">{est.dnbComplete === false ? 'N.R.' : comp.tauxPresentation + '%'} classe</strong>
                       </div>
                     </div>
                   );
@@ -374,7 +439,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
               </div>
               <div className="bg-teal-900/60 border border-teal-600 px-4 py-2 rounded-xl text-right">
                 <span className="text-xs text-teal-300 block">Taux Réseau</span>
-                <span className="text-2xl font-bold text-white">{stats.cfg.tauxMoyenPresents}%</span>
+                <span className="text-2xl font-bold text-white">{stats.cfgRenseignes ? stats.cfg.tauxMoyenPresents + '%' : 'N.R.'}</span>
               </div>
             </div>
 
@@ -391,13 +456,13 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
                         </div>
                       </div>
                       <div className="my-2 flex items-baseline gap-2">
-                        <span className={`text-2xl font-black ${comp.tauxPresents === 100 ? 'text-emerald-400' : 'text-teal-300'}`}>
-                          {comp.tauxPresents}%
+                        <span className={`text-2xl font-black ${est.cfgComplete === false ? 'text-slate-400' : comp.tauxPresents === 100 ? 'text-emerald-400' : 'text-teal-300'}`}>
+                          {est.cfgComplete === false ? 'N.R.' : comp.tauxPresents + '%'}
                         </span>
-                        <span className="text-[10px] text-slate-400">{est.cfg.admis}/{est.cfg.inscrits}</span>
+                        <span className="text-[10px] text-slate-400">{est.cfgComplete === false ? 'Données en attente' : `${est.cfg.admis}/${est.cfg.inscrits}`}</span>
                       </div>
                       <div className="text-[10px] text-slate-500">
-                        {comp.tauxPresents === 100 ? '⭐ 100% de réussite' : `${est.cfg.refuses} non admis`}
+                        {est.cfgComplete === false ? 'Résultats non renseignés' : comp.tauxPresents === 100 ? '⭐ 100% de réussite' : `${est.cfg.refuses} non admis`}
                       </div>
                     </div>
                   );
@@ -418,13 +483,13 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
               <div className="flex items-start gap-3">
                 <span className="w-6 h-6 rounded-full bg-emerald-900/60 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">✓</span>
                 <p>
-                  <strong>CFG :</strong> Un ancrage fort garantissant à la quasi-totalité des {stats.totalEffectifClasse} élèves de 3e SEGPA l'obtention de leur premier diplôme officiel.
+                  <strong>CFG :</strong> {stats.cfg.admis} admis sur {stats.cfg.presents} présents, parmi {stats.cfgRenseignes} établissement(s) renseigné(s).
                 </p>
               </div>
               <div className="flex items-start gap-3">
                 <span className="w-6 h-6 rounded-full bg-blue-900/60 text-blue-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">✓</span>
                 <p>
-                  <strong>DNB Professionnel :</strong> Un taux de présentation de <strong>{stats.tauxMoyenPresentationDnb}%</strong> et une réussite de <strong>{stats.dnb.tauxMoyenPresents}%</strong>, avec de belles disparités positives selon les projets d'établissement.
+                  <strong>DNB Professionnel :</strong> Un taux de présentation de <strong>{stats.dnbRenseignes ? stats.tauxMoyenPresentationDnb + '%' : 'N.R.'}</strong> et une réussite de <strong>{stats.dnbRenseignes ? stats.dnb.tauxMoyenPresents + '%' : 'N.R.'}</strong>, avec de belles disparités positives selon les projets d'établissement.
                 </p>
               </div>
               <div className="flex items-start gap-3">
@@ -434,6 +499,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
                 </p>
               </div>
             </div>
+            {settings.closingMessage.trim() && <p className="text-blue-200 text-sm">{settings.closingMessage}</p>}
             <div className="pt-2 flex justify-center gap-3">
               <button
                 onClick={handleExportPptx}
@@ -457,7 +523,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
       <div className="flex items-center justify-between border-t border-slate-800 pt-3">
         <button
           onClick={prevSlide}
-          disabled={currentSlide === 0}
+          disabled={slidePosition === 0}
           className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-xl transition text-xs font-semibold"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -465,12 +531,12 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
         </button>
 
         <div className="flex items-center gap-2">
-          {Array.from({ length: totalSlides }).map((_, index) => (
+          {enabledIndices.map((slideIndex, index) => (
             <button
-              key={index}
-              onClick={() => setCurrentSlide(index)}
+              key={slideIndex}
+              onClick={() => setSlidePosition(index)}
               className={`h-2 rounded-full transition-all ${
-                currentSlide === index ? 'w-8 bg-blue-500' : 'w-2 bg-slate-700 hover:bg-slate-600'
+                slidePosition === index ? 'w-8 bg-blue-500' : 'w-2 bg-slate-700 hover:bg-slate-600'
               }`}
               title={`Diapositive ${index + 1}`}
             />
@@ -479,7 +545,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
 
         <button
           onClick={nextSlide}
-          disabled={currentSlide === totalSlides - 1}
+          disabled={slidePosition === totalSlides - 1}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-xl transition text-xs font-semibold shadow-md shadow-blue-600/20"
         >
           Suivant

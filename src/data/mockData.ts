@@ -22,14 +22,15 @@ const BASE_ESTABLISHMENTS_CONFIG = [
 ];
 
 // =============================================================================
-// 1. SESSION 2026 (SESSION OFFICIELLE EN COURS)
+// 1. SESSION 2026 (DONNÉES D'EXEMPLE FICTIVES)
 // =============================================================================
 export const session2026: SessionData = {
   id: 'session-2026',
+  dataOrigin: 'demo',
   year: 'Session 2026',
   bassinName: "Bassin d'éducation et de formation SEGPA du Douaisis",
   regions: DEFAULT_REGIONS,
-  notes: 'Session 2026 : Résultats officiels consolidés du Douaisis et Cambrésis.',
+  notes: 'Données fictives de démonstration : ne pas présenter comme résultats officiels.',
   lastUpdated: new Date().toISOString(),
   submissions: [
     {
@@ -249,10 +250,11 @@ export const session2026: SessionData = {
 // =============================================================================
 export const session2025: SessionData = {
   id: 'session-2025',
+  dataOrigin: 'demo',
   year: 'Session 2025',
   bassinName: "Bassin d'éducation et de formation SEGPA du Douaisis",
   regions: DEFAULT_REGIONS,
-  notes: 'Archive Session 2025 : Année marquée par une forte participation au DNB Pro.',
+  notes: 'Données fictives 2025, à remplacer avant utilisation réelle.',
   lastUpdated: '2025-07-08T14:30:00.000Z',
   submissions: [],
   establishments: [
@@ -425,10 +427,11 @@ export const session2025: SessionData = {
 // =============================================================================
 export const session2024: SessionData = {
   id: 'session-2024',
+  dataOrigin: 'demo',
   year: 'Session 2024',
   bassinName: "Bassin d'éducation et de formation SEGPA du Douaisis",
   regions: DEFAULT_REGIONS,
-  notes: 'Archive Session 2024 : Données de référence pour la comparaison triennale.',
+  notes: 'Données fictives 2024, à remplacer avant utilisation réelle.',
   lastUpdated: '2024-07-05T15:00:00.000Z',
   submissions: [],
   establishments: [
