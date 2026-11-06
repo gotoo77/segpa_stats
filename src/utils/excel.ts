@@ -176,6 +176,10 @@ export function parseWorkbook(workbook: XLSX.WorkBook, defaultBassin = 'Douaisis
     if (!name) throw new Error(line + ' : nom établissement manquant');
     const cfgRow = legacy ? cfgRows.get(name.toLowerCase()) : row;
     if (!cfgRow) throw new Error(line + ' : résultats CFG introuvables pour ' + name);
+    if (pick(row, ['DNB_Inscrits', 'Candidats Inscrits', 'DNB Inscrits']) === undefined ||
+        pick(cfgRow, ['CFG_Inscrits', 'CFG Candidats Inscrits', 'Candidats Inscrits']) === undefined) {
+      throw new Error(line + ' : colonnes DNB et CFG requises pour un import fiable');
+    }
     const effectif = numeric(row, ['Effectif_Classe', 'Effectif Classe 3e', 'Effectif Classe', 'Effectif'],
       numeric(cfgRow, ['CFG_Inscrits', 'Candidats Inscrits'], 0, line + ' CFG inscrits'), line + ' effectif classe');
     const dnbPresents = optionalNumber(row, ['DNB_Presents'], line + ' DNB présents');
