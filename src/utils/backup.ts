@@ -24,8 +24,9 @@ function validCfg(value: unknown): value is CfgData {
     natural(value.refuses) && (value.presents === undefined || natural(value.presents));
 }
 function validDnb(value: unknown): value is DnbData {
-  return validCfg(value) && object(value.mentions) &&
-    natural(value.mentions.ab) && natural(value.mentions.b) && natural(value.mentions.tb);
+  const mentions = object(value) ? value.mentions : undefined;
+  return validCfg(value) && object(mentions) &&
+    natural(mentions.ab) && natural(mentions.b) && natural(mentions.tb);
 }
 export function validateSession(value: unknown): value is SessionData {
   if (!object(value) || typeof value.id !== 'string' || typeof value.year !== 'string' ||
