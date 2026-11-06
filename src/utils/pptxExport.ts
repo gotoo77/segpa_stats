@@ -1,8 +1,8 @@
 import pptxgenjs from 'pptxgenjs';
-import { SessionData } from '../types';
+import { SessionData, PresentationSettings, DEFAULT_PRESENTATION_SETTINGS } from '../types';
 import { calculateBassinStats, computeDnb, computeCfg } from './calculations';
 
-export async function exportPresentationToPptx(session: SessionData) {
+export async function exportPresentationToPptx(session: SessionData, settings: PresentationSettings = DEFAULT_PRESENTATION_SETTINGS) {
   const pptx = new pptxgenjs();
 
   pptx.layout = 'LAYOUT_16x9';
@@ -12,11 +12,12 @@ export async function exportPresentationToPptx(session: SessionData) {
 
   const stats = calculateBassinStats(session.establishments);
   const yearText = session.year;
-  const bassinText = session.bassinName;
+  const bassinText = settings.badge.trim() || session.bassinName;
 
   // --------------------------------------------------------------------------
   // SLIDE 1 : Titre / Page de garde
   // --------------------------------------------------------------------------
+  if (settings.enabledSlides.intro) {
   const slide1 = pptx.addSlide();
   slide1.background = { color: '0f172a' }; // Slate 900
 
@@ -30,7 +31,7 @@ export async function exportPresentationToPptx(session: SessionData) {
     fontFace: 'Arial',
   });
 
-  slide1.addText('Bilan des Résultats aux Examens', {
+  slide1.addText(settings.title, {
     x: 1.0,
     y: 1.8,
     w: '80%',
@@ -144,6 +145,9 @@ export async function exportPresentationToPptx(session: SessionData) {
   // --------------------------------------------------------------------------
   // SLIDE 2 : Les Chiffres Clés du Bassin
   // --------------------------------------------------------------------------
+  if (settings.enabledSlides.kpis) {
+  }
+
   const slide2 = pptx.addSlide();
   slide2.background = { color: '0f172a' };
 
@@ -199,6 +203,9 @@ export async function exportPresentationToPptx(session: SessionData) {
   // --------------------------------------------------------------------------
   // SLIDE 3 : Tableau Comparatif DNB Pro
   // --------------------------------------------------------------------------
+  if (settings.enabledSlides.dnb) {
+  }
+
   const slide3 = pptx.addSlide();
   slide3.background = { color: '0f172a' };
 
@@ -245,6 +252,9 @@ export async function exportPresentationToPptx(session: SessionData) {
   // --------------------------------------------------------------------------
   // SLIDE 4 : Focus Mentions DNB Pro
   // --------------------------------------------------------------------------
+  if (settings.enabledSlides.mentions) {
+  }
+
   const slide4 = pptx.addSlide();
   slide4.background = { color: '0f172a' };
 
@@ -295,6 +305,9 @@ export async function exportPresentationToPptx(session: SessionData) {
   // --------------------------------------------------------------------------
   // SLIDE 5 : CFG Détail
   // --------------------------------------------------------------------------
+  if (settings.enabledSlides.cfg) {
+  }
+
   const slide5 = pptx.addSlide();
   slide5.background = { color: '0f172a' };
 
@@ -337,6 +350,9 @@ export async function exportPresentationToPptx(session: SessionData) {
   // --------------------------------------------------------------------------
   // SLIDE 6 : Synthèse et Perspectives
   // --------------------------------------------------------------------------
+  if (settings.enabledSlides.comparison) {
+  }
+
   const slide6 = pptx.addSlide();
   slide6.background = { color: '0f172a' };
 
@@ -368,6 +384,8 @@ export async function exportPresentationToPptx(session: SessionData) {
     w: 10.2,
     h: 4.2,
   });
+
+  }
 
   // Sauvegarde du fichier .pptx (100% compatible LibreOffice Impress et PowerPoint)
   const filename = `StatSEGPA_Presentation_${session.year.replace(/\s+/g, '_')}.pptx`;

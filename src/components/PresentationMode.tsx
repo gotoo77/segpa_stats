@@ -13,10 +13,11 @@ import {
   Download,
   Copy,
   Presentation,
+  Settings2,
   Check
 } from 'lucide-react';
 import { toPng, toBlob } from 'html-to-image';
-import { SessionData } from '../types';
+import { SessionData, PresentationSettings, DEFAULT_PRESENTATION_SETTINGS } from '../types';
 import { calculateBassinStats, computeDnb, computeCfg } from '../utils/calculations';
 import { exportPresentationToPptx } from '../utils/pptxExport';
 
@@ -26,7 +27,31 @@ interface PresentationModeProps {
 }
 
 export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onClose }) => {
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const [slidePosition, setSlidePosition] = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState<PresentationSettings>(() => {
+    try {
+      const raw = localStorage.getItem('statsegpa_presentation_settings_v1');
+      if (!raw) return DEFAULT_PRESENTATION_SETTINGS;
+      const parsed = JSON.parse(raw) as Partial<PresentationSettings>;
+      return { ...DEFAULT_PRESENTATION_SETTINGS, ...parsed, enabledSlides: { ...DEFAULT_PRESENTATION_SETTINGS.enabledSlides, ...parsed.enabledSlides } };
+    } catch { return DEFAULT_PRESENTATION_SETTINGS; }
+  });
+  const slideKeys: Array<keyof PresentationSettings['enabledSlides']> = ['intro', 'kpis', 'dnb', 'mentions', 'cfg', 'comparison'];
+  const enabledIndices = slideKeys.map((key, index) => settings.enabledSlides[key] ? index : -1).filter((index) => index >= 0);
+  const currentSlide = enabledIndices[slidePosition] ?? enabledIndices[0] ?? 0;
+  const totalSlides = enabledIndices.length;
+  const displayBadge = settings.badge.trim() || session.bassinName;
+  const updateSettings = (newSettings: PresentationSettings) => {
+    setSettings(newSettings);
+    try { localStorage.setItem('statsegpa_presentation_settings_v1', JSON.stringify(newSettings)); } catch {}
+  };
+  const updateSlideEnabled = (key: keyof PresentationSettings['enabledSlides'], enabled: boolean) => {
+    const next = { ...settings.enabledSlides, [key]: enabled };
+    if (!Object.values(next).some(Boolean)) return;
+    updateSettings({ ...settings, enabledSlides: next });
+    setSlidePosition(0);
+  };
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isExportingPptx, setIsExportingPptx] = useState(false);
   const [copiedStatus, setCopiedStatus] = useState(false);
@@ -36,10 +61,8 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
   const establishments = session.establishments;
   const stats = calculateBassinStats(establishments);
 
-  const totalSlides = 6;
-
-  const nextSlide = () => setCurrentSlide((prev) => Math.min(prev + 1, totalSlides - 1));
-  const prevSlide = () => setCurrentSlide((prev) => Math.max(prev - 1, 0));
+  const nextSlide = () => setSlidePosition((prev) => Math.min(prev + 1, totalSlides - 1));
+  const prevSlide = () => setSlidePosition((prev) => Math.max(prev - 1, 0));
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -53,7 +76,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [totalSlides, onClose]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -104,7 +127,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
   const handleExportPptx = async () => {
     try {
       setIsExportingPptx(true);
-      await exportPresentationToPptx(session);
+      await exportPresentationToPptx(session, settings);
     } catch (e: any) {
       console.error(e);
       alert(`Erreur lors de l'export de la présentation : ${e.message}`);
@@ -123,13 +146,22 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
           </div>
           <div>
             <span className="text-xs font-semibold tracking-wider text-blue-400 uppercase">
-              {session.bassinName}
+              {displayBadge}
             </span>
             <h2 className="text-sm font-bold text-slate-200">{session.year} — Bilan officiel</h2>
           </div>
         </div>
 
         {/* BOUTONS D'EXPORT SUR CHAQUE ÉCRAN */}
+          <button
+            type="button"
+            onClick={() => setShowSettings((value) => !value)}
+            aria-expanded={showSettings}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold border border-slate-600"
+          >
+            <Settings2 className="w-4 h-4" /> Paramétrer
+          </button>
+
         <div className="flex items-center gap-2 flex-wrap">
           {/* Bouton Exporter toute la présentation LibreOffice / PowerPoint */}
           <button
@@ -165,7 +197,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
           <div className="h-4 w-px bg-slate-800 mx-1 hidden sm:block" />
 
           <span className="text-xs text-slate-400 font-mono hidden sm:inline">
-            Slide {currentSlide + 1} / {totalSlides}
+            Slide {slidePosition + 1} / {totalSlides}
           </span>
           <button
             onClick={toggleFullscreen}
@@ -184,6 +216,26 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
         </div>
       </div>
 
+      {showSettings && (
+        <div className="absolute top-20 right-4 sm:right-8 z-50 w-[min(24rem,calc(100vw-2rem))] max-h-[70vh] overflow-y-auto p-4 space-y-3 bg-slate-900 text-white border border-slate-600 shadow-2xl rounded-2xl text-xs">
+          <div className="flex justify-between items-center"><h3 className="font-bold text-sm">Réglages de la présentation</h3><button onClick={() => setShowSettings(false)} aria-label="Fermer les réglages"><X className="w-4 h-4" /></button></div>
+          {([['title', 'Titre'], ['badge', 'Bassin / sur-titre (vide = session courante)'], ['subtitle', 'Sous-titre'], ['presenter', 'Présentateur'], ['closingMessage', 'Message final']] as const).map(([key, label]) => (
+            <label key={key} className="block space-y-1"><span className="block text-slate-300">{label}</span>
+              <input value={settings[key]} onChange={(e) => updateSettings({ ...settings, [key]: e.target.value })}
+                placeholder={key === 'badge' ? session.bassinName : undefined}
+                className="w-full rounded-lg bg-slate-800 border border-slate-600 px-2 py-1.5 text-white" />
+            </label>
+          ))}
+          <fieldset className="border-t border-slate-700 pt-3 space-y-2"><legend className="font-bold pt-2">Diapositives visibles</legend>
+            {slideKeys.map((key) => (
+              <label key={key} className="flex items-center gap-2"><input type="checkbox" checked={settings.enabledSlides[key]} onChange={(e) => updateSlideEnabled(key, e.target.checked)} />
+                <span>{({ intro: 'Introduction', kpis: 'Chiffres clés', dnb: 'DNB Pro', mentions: 'Mentions', cfg: 'CFG', comparison: 'Synthèse' } as const)[key]}</span>
+              </label>
+            ))}
+          </fieldset>
+          <button type="button" className="text-blue-300 underline" onClick={() => { updateSettings(DEFAULT_PRESENTATION_SETTINGS); setSlidePosition(0); }}>Restaurer les réglages par défaut</button>
+        </div>
+      )}
       {/* Contenu de la diapositive active (capturable en haute fidélité) */}
       <div
         ref={slideRef}
@@ -194,17 +246,18 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
           <div className="text-center space-y-6 animate-fade-in w-full">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-900/60 text-blue-300 border border-blue-700/50 text-sm font-medium">
               <Sparkles className="w-4 h-4 text-blue-400" />
-              Direction & Coordination de Réseau SEGPA
+              {settings.subtitle}
             </div>
             <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-white leading-tight">
-              Bilan des Résultats aux Examens
+              {settings.title}
               <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-teal-300">
                 DNB Professionnel & CFG
               </span>
             </h1>
             <p className="text-xl sm:text-2xl text-slate-400 font-light max-w-3xl mx-auto">
-              {session.bassinName} • {session.year}
+              {displayBadge} • {session.year}
             </p>
+            {settings.presenter.trim() && <p className="text-sm text-slate-300">{settings.presenter}</p>}
             <div className="pt-8 flex justify-center gap-6 text-sm text-slate-400 flex-wrap">
               <div className="bg-slate-900/90 border border-slate-800 px-6 py-3 rounded-2xl">
                 <span className="block text-2xl font-bold text-white">{stats.totalEtablissements}</span>
@@ -434,6 +487,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
                 </p>
               </div>
             </div>
+            {settings.closingMessage.trim() && <p className="text-blue-200 text-sm">{settings.closingMessage}</p>}
             <div className="pt-2 flex justify-center gap-3">
               <button
                 onClick={handleExportPptx}
@@ -457,7 +511,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
       <div className="flex items-center justify-between border-t border-slate-800 pt-3">
         <button
           onClick={prevSlide}
-          disabled={currentSlide === 0}
+          disabled={slidePosition === 0}
           className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-xl transition text-xs font-semibold"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -465,12 +519,12 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
         </button>
 
         <div className="flex items-center gap-2">
-          {Array.from({ length: totalSlides }).map((_, index) => (
+          {enabledIndices.map((slideIndex, index) => (
             <button
-              key={index}
-              onClick={() => setCurrentSlide(index)}
+              key={slideIndex}
+              onClick={() => setSlidePosition(index)}
               className={`h-2 rounded-full transition-all ${
-                currentSlide === index ? 'w-8 bg-blue-500' : 'w-2 bg-slate-700 hover:bg-slate-600'
+                slidePosition === index ? 'w-8 bg-blue-500' : 'w-2 bg-slate-700 hover:bg-slate-600'
               }`}
               title={`Diapositive ${index + 1}`}
             />
@@ -479,7 +533,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
 
         <button
           onClick={nextSlide}
-          disabled={currentSlide === totalSlides - 1}
+          disabled={slidePosition === totalSlides - 1}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-xl transition text-xs font-semibold shadow-md shadow-blue-600/20"
         >
           Suivant

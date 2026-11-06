@@ -162,7 +162,7 @@ export interface PresentationSettings {
 
 export const DEFAULT_PRESENTATION_SETTINGS: PresentationSettings = {
   title: 'Bilan des Résultats aux Examens : DNB Professionnel & CFG',
-  badge: "Bassin d'éducation et de formation SEGPA du Douaisis",
+  badge: '', // Vide = bassin affiché dans la session active
   subtitle: 'Direction & Coordination du Réseau',
   presenter: 'Direction SEGPA',
   closingMessage: "Félicitations à l'ensemble des élèves et aux équipes pédagogiques du bassin pour leur investissement !",
