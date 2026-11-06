@@ -110,6 +110,7 @@ for (const [label, url] of [
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{
       Établissement: 'Collège du bassin importé', Bassin: 'Valenciennois', Effectif_Classe: 10,
       DNB_Inscrits: 10, DNB_Admis: 8, DNB_Refuses: 2,
+      DNB_Mention_AB: 0, DNB_Mention_B: 0, DNB_Mention_TB: 0,
       CFG_Inscrits: 10, CFG_Admis: 9, CFG_Refuses: 1,
     }]), 'Donnees_StatSEGPA');
     page.on('dialog', dialog => dialog.accept());
