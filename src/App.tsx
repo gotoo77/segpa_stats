@@ -269,7 +269,7 @@ export const App: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="font-bold text-slate-700 dark:text-slate-200">StatSEGPA</span>
             <span>• Outil de pilotage & analyse statistique DNB Pro & CFG</span>
-            <span className="font-mono text-[11px]" aria-label="Version de StatSEGPA">v{appVersion}</span>
+            <span className="font-mono text-[11px]" aria-label="Version de StatSEGPA">v{appVersion} ({__BUILD_ID__})</span>
           </div>
 
           <div className="flex items-center gap-4 text-[11px] flex-wrap justify-center sm:justify-end">
