@@ -74,3 +74,68 @@ for (const [label, url] of [
     await expect(page.getByRole('button', { name: 'Capturer slide (PNG)' })).toBeDisabled();
   });
 }
+
+for (const [label, url] of [
+  ['React compilé', 'http://127.0.0.1:4173'],
+  ['HTML portable', 'http://127.0.0.1:4174'],
+]) {
+  test(label + ': restaurer 2024 seul reste exclusif après rechargement', async ({ page }) => {
+    await page.goto(url);
+    await page.getByRole('button', { name: "Ouvrir les options d'import et export Excel" }).click();
+    page.on('dialog', dialog => dialog.accept());
+    const record = { id: 'session-2024', year: 'Session 2024',
+      bassinName: 'Réseau de test', establishments: [], regions: [], submissions: [],
+      lastUpdated: '2026-11-06T00:00:00.000Z' };
+    const backup = { format: 'statsegpa-backup', version: 1, activeYear: '2024',
+      exportedAt: '2026-11-06T00:00:00.000Z', sessions: { '2024': record } };
+    await page.locator('input[accept=".json"]').setInputFiles({
+      name: 'backup.json', mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(backup), 'utf8'),
+    });
+    const select = page.getByRole('combobox', { name: 'Choisir une session annuelle' });
+    await expect(select.locator('option')).toHaveCount(1);
+    await expect(select).toHaveValue('2024');
+    await expect.poll(async () => page.evaluate(() =>
+      Object.keys(JSON.parse(localStorage.getItem('statsegpa_sessions_v1') || '{}')).join(',')
+    )).toBe('2024');
+    await page.reload();
+    await expect(page.getByRole('combobox', { name: 'Choisir une session annuelle' }).locator('option')).toHaveCount(1);
+    await expect(page.getByRole('combobox', { name: 'Choisir une session annuelle' })).toHaveValue('2024');
+  });
+
+  test(label + ': importer un nouveau bassin le rend sélectionnable', async ({ page }) => {
+    await page.goto(url);
+    await page.getByRole('button', { name: "Ouvrir les options d'import et export Excel" }).click();
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{
+      Établissement: 'Collège du bassin importé', Bassin: 'Valenciennois', Effectif_Classe: 10,
+      DNB_Inscrits: 10, DNB_Admis: 8, DNB_Refuses: 2,
+      CFG_Inscrits: 10, CFG_Admis: 9, CFG_Refuses: 1,
+    }]), 'Donnees_StatSEGPA');
+    page.on('dialog', dialog => dialog.accept());
+    await page.locator('input[accept*=".xlsx"]').setInputFiles({
+      name: 'bassin.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      buffer: XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }),
+    });
+    await expect(page.getByRole('region', { name: "Prévisualisation de l'import Excel" })).toBeVisible();
+    await page.getByRole('button', { name: 'Confirmer le remplacement' }).click();
+    await page.getByRole('button', { name: 'Fermer', exact: true }).click();
+    const basin = page.getByRole('button', { name: /Valenciennois \(1\)/ });
+    await expect(basin).toBeVisible();
+    await basin.click();
+    await page.getByRole('button', { name: 'Saisie Tableur' }).click();
+    await expect(page.locator('input[value="Collège du bassin importé"]').first()).toBeVisible();
+  });
+
+  test(label + ': une panne de stockage local provoque une alerte visible', async ({ page }) => {
+    await page.addInitScript(() => {
+      const original = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (key === 'statsegpa_sessions_v1') throw new Error('Quota dépassé (simulation)');
+        return original.call(this, key, value);
+      };
+    });
+    await page.goto(url);
+    await expect(page.getByRole('alert')).toContainText('Sauvegarde locale impossible');
+  });
+}
