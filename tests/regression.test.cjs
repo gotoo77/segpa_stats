@@ -75,3 +75,42 @@ test('classeur sans colonnes connues est rejeté', () => {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ Établissement: 'Test', Autre: 1 }]), 'Feuille1');
   assert.throws(() => excel.parseWorkbook(wb), /colonnes de résultats/);
 });
+
+test('statistiques : les établissements non renseignés ne faussent pas les taux', () => {
+  const valid = item({ effectifClasse: 10, dnb: { inscrits: 10, admis: 10, refuses: 0, mentions: { ab: 0, b: 0, tb: 0 } }, cfg: { inscrits: 10, admis: 10, refuses: 0 } });
+  const pending = item({ id: 'pending', effectifClasse: 30, dnbComplete: false, cfgComplete: false, dnb: { inscrits: 0, admis: 0, refuses: 0, mentions: { ab: 0, b: 0, tb: 0 } }, cfg: { inscrits: 0, admis: 0, refuses: 0 } });
+  const stats = calculations.calculateBassinStats([valid, pending]);
+  assert.equal(stats.totalEtablissements, 2);
+  assert.equal(stats.dnbRenseignes, 1);
+  assert.equal(stats.cfgRenseignes, 1);
+  assert.equal(stats.dnb.tauxMoyenPresents, 100);
+  assert.equal(stats.cfg.tauxMoyenPresents, 100);
+  assert.equal(stats.tauxMoyenPresentationDnb, 100);
+});
+
+test('Excel : état non renseigné préservé après export puis import', () => {
+  const pending = item({ dnbComplete: false, cfgComplete: false });
+  const session = { id: '2027', year: 'Session 2027', bassinName: 'Test', establishments: [pending], lastUpdated: '' };
+  const buf = XLSX.write(excel.createSessionWorkbook(session), { type: 'buffer', bookType: 'xlsx' });
+  assert.deepEqual(excel.parseWorkbook(XLSX.read(buf, { type: 'buffer' })), [pending]);
+});
+
+const backup = loadTs('src/utils/backup.ts');
+
+test('JSON : sauvegarde de toutes les sessions sans perte et avec année active', () => {
+  const data = {
+    '2024': { id: '2024', year: 'Session 2024', bassinName: 'Réseau', establishments: [item()], submissions: [], lastUpdated: '2026-11-06' },
+    '2025': { id: '2025', year: 'Session 2025', bassinName: 'Réseau', establishments: [], submissions: [], lastUpdated: '2026-11-06' },
+  };
+  const serialized = JSON.stringify(backup.createCompleteBackup(data, '2025'));
+  const restored = backup.parseCompleteBackup(JSON.parse(serialized));
+  assert.equal(restored.activeYear, '2025');
+  assert.deepEqual(restored.sessions, data);
+});
+
+test('JSON : restauration refuse un jeu de sessions mal formé', () => {
+  assert.throws(() => backup.parseCompleteBackup({
+    format: 'statsegpa-backup', version: 1, exportedAt: '2026-11-06', activeYear: '2024',
+    sessions: { '2024': { id: 'malformed', establishments: [{ name: '' }] } },
+  }), /mal formées/);
+});

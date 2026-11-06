@@ -19,6 +19,19 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - name: Install Playwright for browser smoke checks
+        run: |
+          npm install --no-save --package-lock=false @playwright/test@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Test React and portable HTML in Chromium
+        run: npx playwright test
+      - name: Upload browser failure artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: statsegpa-browser-checks
+          path: test-results/
+          if-no-files-found: ignore
       - name: Publish portable file on working branch
         run: |
           if ! git diff --quiet -- StatSEGPA_Portable.html; then
