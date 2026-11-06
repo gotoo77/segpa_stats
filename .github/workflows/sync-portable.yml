@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-24.04
     container: mcr.microsoft.com/playwright:v1.56.1-noble
     steps:
+      - name: Install Git in Playwright container
+        run: apt-get update -qq && apt-get install -y -qq --no-install-recommends git
       - uses: actions/checkout@v4
         with:
           persist-credentials: true

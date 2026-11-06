@@ -1,5 +1,6 @@
 const { test, expect } = require('@playwright/test');
 const XLSX = require('xlsx');
+const fs = require('node:fs');
 
 for (const [label, url] of [
   ['React compilé', 'http://127.0.0.1:4173'],
@@ -16,9 +17,15 @@ for (const [label, url] of [
     await page.getByRole('button', { name: 'Rapport', exact: true }).click();
     await expect(page.getByText('Rapport Récapitulatif Imprimable')).toBeVisible();
     await expect(page.locator('.report-paper table tbody tr').first()).toHaveCSS('color', 'rgb(15, 23, 42)');
-    await test.info().attach('rapport-papier-' + label + '.png', {
-      body: await page.locator('.report-paper').screenshot(), contentType: 'image/png',
-    });
+    fs.mkdirSync('test-results', { recursive: true });
+    const slug = label.startsWith('React') ? 'vite' : 'portable';
+    await page.locator('.report-paper').screenshot({ path: 'test-results/rapport-papier-' + slug + '.png' });
+    await page.getByRole('button', { name: 'Passer en mode sombre' }).click();
+    await expect(page.locator('.report-paper table tbody tr').first()).toHaveCSS('color', 'rgb(15, 23, 42)');
+    await page.getByRole('button', { name: 'Mode Sombre', exact: true }).click();
+    await page.locator('table tbody tr').first().screenshot({ path: 'test-results/rapport-sombre-' + slug + '.png' });
+    await page.getByRole('button', { name: 'Feuille Papier A4' }).click();
+    await expect(page.locator('.report-paper table tbody tr').first()).toHaveCSS('color', 'rgb(15, 23, 42)');
 
     await page.getByRole('button', { name: 'Présentation', exact: true }).click();
     await page.getByRole('button', { name: /Paramétrer/ }).click();
