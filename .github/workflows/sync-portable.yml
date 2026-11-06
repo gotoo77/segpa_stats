@@ -3,6 +3,9 @@ on:
   push:
     branches: ['fix/data-integrity-review']
   workflow_dispatch:
+concurrency:
+  group: portable-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: write
 jobs:
