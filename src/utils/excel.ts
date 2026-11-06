@@ -183,9 +183,33 @@ export function parseWorkbook(workbook: XLSX.WorkBook, defaultBassin = 'Douaisis
     const effectif = numeric(row, ['Effectif_Classe', 'Effectif Classe 3e', 'Effectif Classe', 'Effectif'],
       numeric(cfgRow, ['CFG_Inscrits', 'Candidats Inscrits'], 0, line + ' CFG inscrits'), line + ' effectif classe');
     const dnbPresents = optionalNumber(row, ['DNB_Presents'], line + ' DNB présents');
-    const dnbComplete = String(pick(row, ['DNB_Renseigne']) ?? 'OUI').trim().toUpperCase() !== 'NON';
-    const cfgComplete = String(pick(row, ['CFG_Renseigne']) ?? 'OUI').trim().toUpperCase() !== 'NON';
+    const statusDnb = String(pick(row, ['DNB_Renseigne']) ?? 'OUI').trim().toUpperCase();
+    const statusCfg = String(pick(row, ['CFG_Renseigne']) ?? 'OUI').trim().toUpperCase();
+    if (!['OUI', 'NON'].includes(statusDnb) || !['OUI', 'NON'].includes(statusCfg))
+      throw new Error(line + ' : statut renseigné attendu : OUI ou NON');
+    const dnbComplete = statusDnb === 'OUI';
+    const cfgComplete = statusCfg === 'OUI';
     const cfgPresents = optionalNumber(cfgRow, ['CFG_Presents'], line + ' CFG présents');
+    // A missing result is never silently converted into a genuine zero.
+    // Partial drafts remain allowed only when explicitly flagged as not entered.
+    const requireColumns = (source: Record<string, unknown>, columns: string[][], exam: string) => {
+      for (const options of columns) {
+        if (pick(source, options) === undefined)
+          throw new Error(line + ' (' + name + ') : champ manquant pour ' + exam + ' : ' + options[0]);
+      }
+    };
+    if (dnbComplete) requireColumns(row, [
+      ['DNB_Admis', 'Candidats Admis', 'DNB Admis'],
+      ['DNB_Refuses', 'Candidats Refusés', 'DNB Refusés'],
+      ['DNB_Mention_AB', 'Mention Assez Bien', 'AB'],
+      ['DNB_Mention_B', 'Mention Bien', 'B'],
+      ['DNB_Mention_TB', 'Mention Très Bien', 'TB'],
+    ], 'DNB');
+    if (cfgComplete) requireColumns(cfgRow, [
+      ['CFG_Admis', 'CFG Candidats Admis', 'Candidats Admis'],
+      ['CFG_Refuses', 'CFG Candidats Refusés', 'Candidats Refusés'],
+    ], 'CFG');
+
     const dnb = {
       inscrits: numeric(row, ['DNB_Inscrits', 'Candidats Inscrits', 'DNB Inscrits'], 0, line + ' DNB inscrits'),
       ...(dnbPresents !== undefined ? { presents: dnbPresents } : {}),

@@ -100,6 +100,7 @@ test('Excel : état non renseigné préservé après export puis import', () => 
 const dataIntegrity = loadTs('src/utils/dataIntegrity.ts', { './calculations': calculations });
 const backup = loadTs('src/utils/backup.ts', { './calculations': calculations, './dataIntegrity': dataIntegrity });
 const sessionStorage = loadTs('src/utils/sessionStorage.ts');
+const submissionMatching = loadTs('src/utils/submissionMatching.ts');
 
 test('JSON : sauvegarde de toutes les sessions sans perte et avec année active', () => {
   const data = {
@@ -136,14 +137,14 @@ test('stockage local illisible : aucune substitution silencieuse par les exemple
   assert.throws(() => sessionStorage.loadStoredSessions('[]', null, { '2026': {} }));
 });
 
-test('JSON : refuser les données examinées dont les admis dépassent les présents', () => {
+test('JSON : un brouillon incohérent exporté se restaure sans perdre les chiffres', () => {
   const e = item({ cfg: { inscrits: 10, presents: 5, admis: 8, refuses: 0 } });
-  const session = { id: '2024', year: 'Session 2024', bassinName: 'Réseau', establishments: [e], lastUpdated: '2026-11-06' };
-  assert.equal(backup.validateSession(session), false);
-  assert.throws(() => backup.parseCompleteBackup({
-    format: 'statsegpa-backup', version: 1, exportedAt: '2026-11-06', activeYear: '2024',
-    sessions: { '2024': session },
-  }));
+  const session = { id: '2024', year: 'Session 2024', bassinName: 'Réseau',
+    establishments: [e], lastUpdated: '2026-11-06' };
+  const serialized = JSON.stringify(backup.createCompleteBackup({ '2024': session }, '2024'));
+  const restored = backup.parseCompleteBackup(JSON.parse(serialized));
+  assert.deepEqual(restored.sessions['2024'], session);
+  assert.ok(dataIntegrity.collectDataIssues(restored.sessions['2024'].establishments).length > 0);
 });
 
 test('JSON : refuser les déclarations malformées ou incohérentes', () => {
@@ -164,4 +165,47 @@ test('JSON : les résultats explicitement non renseignés restent restaurables',
 test('incohérences des examens renseignés : détectées avant édition du rapport', () => {
   assert.ok(dataIntegrity.collectDataIssues([item({ dnb: { inscrits: 10, admis: 12, refuses: 0,
     mentions: { ab: 0, b: 0, tb: 0 } } })]).some(x => x.includes('DNB')));
+});
+
+
+// Scénarios adversariaux : homonymes et fichier incomplet.
+test('déclaration : deux collèges homonymes dans des bassins différents ne se confondent pas', () => {
+  const ests = [item({ id: 'A', name: 'Collège Victor Hugo', bassin: 'Douaisis' }),
+    item({ id: 'B', name: 'Collège Victor Hugo', bassin: 'Cambrésis' })];
+  assert.deepEqual(submissionMatching.resolveSubmissionTarget({
+    establishmentName: 'Collège Victor Hugo', bassin: 'Cambrésis'
+  }, ests), { kind: 'existing', index: 1 });
+  assert.deepEqual(submissionMatching.resolveSubmissionTarget({
+    establishmentName: 'Collège Victor Hugo'
+  }, ests), { kind: 'ambiguous' });
+});
+
+test('déclaration : deux homonymes du même bassin restent ambigus sans ville', () => {
+  const ests = [item({ id: 'A', name: 'Collège Test', bassin: 'Douaisis', city: 'A' }),
+    item({ id: 'B', name: 'Collège Test', bassin: 'Douaisis', city: 'B' })];
+  assert.equal(submissionMatching.resolveSubmissionTarget({
+    establishmentName: 'Collège Test', bassin: 'Douaisis',
+  }, ests).kind, 'ambiguous');
+  assert.deepEqual(submissionMatching.resolveSubmissionTarget({
+    establishmentName: 'Collège Test', bassin: 'Douaisis', city: 'B',
+  }, ests), { kind: 'existing', index: 1 });
+});
+
+test('Excel : résultats renseignés exigent les colonnes admis/refusés', () => {
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{
+    Établissement: 'Collège Incomplet', Effectif_Classe: 10, DNB_Inscrits: 10, CFG_Inscrits: 10,
+  }]), 'Donnees_StatSEGPA');
+  assert.throws(() => excel.parseWorkbook(wb), /champ manquant/);
+});
+
+test('Excel : données incomplètes expressément N.R. ne deviennent pas des taux officiels à zéro', () => {
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{
+    Établissement: 'Collège Incomplet', Effectif_Classe: 10,
+    DNB_Inscrits: 10, CFG_Inscrits: 10, DNB_Renseigne: 'NON', CFG_Renseigne: 'NON',
+  }]), 'Donnees_StatSEGPA');
+  const [e] = excel.parseWorkbook(wb);
+  assert.equal(e.dnbComplete, false);
+  assert.equal(e.cfgComplete, false);
 });

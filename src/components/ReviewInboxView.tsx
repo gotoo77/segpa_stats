@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { ColleagueSubmission, SessionData, Establishment, COLLEGE_PALETTE } from '../types';
 import { computeDnb, computeCfg } from '../utils/calculations';
+import { resolveSubmissionTarget } from '../utils/submissionMatching';
 
 interface ReviewInboxViewProps {
   session: SessionData;
@@ -60,9 +61,12 @@ export const ReviewInboxView: React.FC<ReviewInboxViewProps> = ({
       return;
     }
 
-    const existingIndex = session.establishments.findIndex(
-      (e) => e.name.toLowerCase().trim() === targetSub.establishmentName.toLowerCase().trim()
-    );
+    const match = resolveSubmissionTarget(targetSub, session.establishments);
+    if (match.kind === 'ambiguous') {
+      alert('Plusieurs établissements correspondent à cette déclaration. Précisez son bassin ou sa ville avant validation.');
+      return;
+    }
+    const existingIndex = match.kind === 'existing' ? match.index : -1;
 
     let updatedEstablishments: Establishment[];
     if (existingIndex >= 0) {

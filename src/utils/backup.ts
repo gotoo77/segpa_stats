@@ -1,6 +1,4 @@
 import type { SessionData, DnbData, CfgData } from '../types';
-import { computeDnb, computeCfg } from './calculations';
-import { collectDataIssues } from './dataIntegrity';
 
 export interface CompleteBackup {
   format: 'statsegpa-backup';
@@ -49,7 +47,6 @@ export function validateSession(value: unknown): value is SessionData {
         (est.cfgComplete !== undefined && typeof est.cfgComplete !== 'boolean')) return false;
     ids.add(est.id);
   }
-  if (collectDataIssues(value.establishments as SessionData['establishments']).length > 0) return false;
 
   if (value.submissions !== undefined) {
     if (!Array.isArray(value.submissions)) return false;
@@ -66,8 +63,6 @@ export function validateSession(value: unknown): value is SessionData {
           !optionalString(sub.directorNotes) || !natural(sub.effectifClasse) ||
           !validDnb(sub.dnb) || !validCfg(sub.cfg)) return false;
       submissionIds.add(sub.id);
-      if (computeDnb(sub.dnb, sub.effectifClasse as number).errors.length ||
-          computeCfg(sub.cfg, sub.effectifClasse as number).errors.length) return false;
     }
   }
   return true;

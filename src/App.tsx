@@ -255,7 +255,8 @@ export const App: React.FC = () => {
         isOpen={isTeacherFormOpen}
         onClose={() => setIsTeacherFormOpen(false)}
         onSubmit={handleNewTeacherSubmission}
-        existingEstablishmentNames={session.establishments.map((e) => e.name)}
+        existingEstablishments={session.establishments}
+        regions={session.regions || DEFAULT_REGIONS}
         defaultBassin={bassinFilter === 'all' ? (session.regions || DEFAULT_REGIONS)[0]?.name || 'Douaisis' : bassinFilter}
       />
 
