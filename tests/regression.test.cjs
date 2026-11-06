@@ -2,18 +2,23 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const ts = require('typescript');
+const { stripTypeScriptTypes } = require('node:module');
 const XLSX = require('xlsx');
 
 function loadTs(file, mocks = {}) {
-  const source = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
-  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
+  let source = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+  const exported = [...source.matchAll(/export function (\w+)/g)].map((m) => m[1]);
+  source = source.replace(/^import \{[^\n]+\} from '\.\.\/types';\s*$/gm, '');
+  source = source.replace("import * as XLSX from 'xlsx';", "const XLSX = require('xlsx');");
+  source = source.replace("import { computeDnb, computeCfg } from './calculations';", "const { computeDnb, computeCfg } = require('./calculations');");
+  source = source.replace(/export function /g, 'function ');
+  const stripped = stripTypeScriptTypes(source, { mode: 'strip' });
+  const output = stripped + '\nmodule.exports = { ' + exported.join(', ') + ' };';
   const module = { exports: {} };
   const localRequire = (id) => Object.hasOwn(mocks, id) ? mocks[id] : require(id);
-  new Function('require', 'module', 'exports', compiled.outputText)(localRequire, module, module.exports);
+  new Function('require', 'module', 'exports', output)(localRequire, module, module.exports);
   return module.exports;
 }
-
 const calculations = loadTs('src/utils/calculations.ts');
 const excel = loadTs('src/utils/excel.ts', { './calculations': calculations });
 
