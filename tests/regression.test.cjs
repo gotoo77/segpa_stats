@@ -225,3 +225,60 @@ test('statistiques : effectif DNB et effectif global sont des dénominateurs dis
   assert.equal(result.dnb.inscrits, 10);
   assert.equal(result.tauxMoyenPresentationDnb, 100);
 });
+
+
+test('ancien Excel : deux collèges homonymes dans CFG sont refusés avant toute association de résultats', () => {
+  const schools = [
+    item({ id: 'A', name: 'Collège Victor Hugo', bassin: 'Douaisis' }),
+    item({ id: 'B', name: 'Collège Victor Hugo', bassin: 'Cambrésis',
+      cfg: { inscrits: 14, presents: 13, admis: 9, refuses: 4 } }),
+  ];
+  const source = excel.createSessionWorkbook({ year: 'Session 2026', establishments: schools });
+  const legacy = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(legacy, source.Sheets['DNB Professionnel'], 'DNB Professionnel');
+  XLSX.utils.book_append_sheet(legacy, source.Sheets.CFG, 'CFG');
+  assert.throws(() => excel.parseWorkbook(legacy), /homonyme.*CFG/);
+});
+
+test('ancien Excel : homonymes dans DNB refusés même si CFG ne possède qu’une seule ligne', () => {
+  const original = item({ name: 'Collège Victor Hugo' });
+  const dnb = excel.createSessionWorkbook({ year: 'Session 2026', establishments: [
+    original, item({ id: 'B', name: original.name })
+  ] });
+  const cfg = excel.createSessionWorkbook({ year: 'Session 2026', establishments: [original] });
+  const legacy = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(legacy, dnb.Sheets['DNB Professionnel'], 'DNB Professionnel');
+  XLSX.utils.book_append_sheet(legacy, cfg.Sheets.CFG, 'CFG');
+  assert.throws(() => excel.parseWorkbook(legacy), /homonyme.*DNB/);
+});
+
+test('ancien Excel : collège non ambigu reste importable', () => {
+  const original = item();
+  const source = excel.createSessionWorkbook({ year: 'Session 2026', establishments: [original] });
+  const legacy = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(legacy, source.Sheets['DNB Professionnel'], 'DNB Professionnel');
+  XLSX.utils.book_append_sheet(legacy, source.Sheets.CFG, 'CFG');
+  const [result] = excel.parseWorkbook(legacy);
+  assert.equal(result.name, original.name);
+  assert.equal(result.dnb.admis, original.dnb.admis);
+  assert.equal(result.cfg.admis, original.cfg.admis);
+});
+
+test('Excel : les brouillons restent intacts dans la feuille source mais ne sont pas publiés dans les synthèses', () => {
+  const draft = item({ dnbComplete: false, cfgComplete: false,
+    dnb: { inscrits: 10, admis: 987, refuses: 1, mentions: { ab: 4, b: 0, tb: 0 } },
+    cfg: { inscrits: 14, admis: 986, refuses: 1 } });
+  const workbook = excel.createSessionWorkbook({ year: 'Session 2026', establishments: [draft] });
+  const source = XLSX.utils.sheet_to_json(workbook.Sheets.Donnees_StatSEGPA)[0];
+  const dnb = XLSX.utils.sheet_to_json(workbook.Sheets['DNB Professionnel'])[0];
+  const cfg = XLSX.utils.sheet_to_json(workbook.Sheets.CFG)[0];
+  const combined = XLSX.utils.sheet_to_json(workbook.Sheets['Synthèse Réseau'])[0];
+  assert.equal(source.DNB_Admis, 987);
+  assert.equal(source.CFG_Admis, 986);
+  assert.equal(source.DNB_Renseigne, 'NON');
+  assert.equal(dnb['Candidats Admis'], 'N.R.');
+  assert.equal(dnb['Mention Assez Bien'], 'N.R.');
+  assert.equal(cfg['Candidats Admis'], 'N.R.');
+  assert.equal(combined['DNB Inscrits'], 'N.R.');
+  assert.equal(combined['CFG Inscrits'], 'N.R.');
+});

@@ -1,6 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const XLSX = require('xlsx');
 const fs = require('node:fs');
+const JSZip = require('jszip');
 
 for (const [label, url] of [
   ['React compilé', 'http://127.0.0.1:4173'],
@@ -161,5 +162,57 @@ for (const [label, url] of [
     await page.reload();
     await page.getByRole('button', { name: 'Rapport', exact: true }).click();
     await expect(page.locator('.report-paper')).toContainText(fraction);
+  });
+}
+
+
+for (const [label, url] of [
+  ['React compilé', 'http://127.0.0.1:4173'],
+  ['HTML portable', 'http://127.0.0.1:4174'],
+]) {
+  test(label + ': les brouillons N.R. sont masqués dans le rapport et le PPTX, mais restent récupérables', async ({ page }) => {
+    await page.goto(url);
+    const schoolName = await page.evaluate(() => {
+      const key = 'statsegpa_sessions_v1';
+      const sessions = JSON.parse(localStorage.getItem(key));
+      const est = sessions['2026'].establishments.find(e => e.bassin === 'Douaisis');
+      est.dnbComplete = false;
+      est.cfgComplete = false;
+      est.dnb.admis = 987;
+      est.dnb.inscrits = 976;
+      est.dnb.mentions.ab = 975;
+      est.cfg.admis = 986;
+      est.cfg.inscrits = 974;
+      localStorage.setItem(key, JSON.stringify(sessions));
+      return est.name;
+    });
+    await page.reload();
+    await page.getByRole('button', { name: 'Rapport', exact: true }).click();
+    const rows = page.locator('.report-paper table tbody tr').filter({ hasText: schoolName });
+    await expect(rows).toHaveCount(2);
+    for (const row of await rows.all()) {
+      await expect(row).toContainText('N.R.');
+      await expect(row).not.toContainText('987');
+      await expect(row).not.toContainText('986');
+      await expect(row).not.toContainText('976');
+      await expect(row).not.toContainText('974');
+    }
+    await page.getByRole('button', { name: 'Présentation', exact: true }).click();
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: /Exporter Présentation LibreOffice/ }).click();
+    const download = await downloadPromise;
+    const archive = await JSZip.loadAsync(fs.readFileSync(await download.path()));
+    const slideFiles = Object.keys(archive.files).filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n));
+    expect(slideFiles.length).toBeGreaterThan(0);
+    const slideXml = (await Promise.all(slideFiles.map(n => archive.file(n).async('string')))).join('\n');
+    for (const draftNumber of ['987','986','976','974','975']) {
+      expect(slideXml).not.toContain('<a:t>' + draftNumber + '</a:t>');
+    }
+    expect(slideXml).toContain('N.R.');
+    const stored = await page.evaluate(() => {
+      const e = JSON.parse(localStorage.getItem('statsegpa_sessions_v1'))['2026'].establishments.find(e => e.dnbComplete === false);
+      return { dnbAdmis: e.dnb.admis, cfgAdmis: e.cfg.admis };
+    });
+    expect(stored).toEqual({ dnbAdmis: 987, cfgAdmis: 986 });
   });
 }
