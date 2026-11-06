@@ -56,3 +56,21 @@ for (const [label, url] of [
     await expect(page.getByRole('region', { name: 'Prévisualisation de l\'import Excel' })).toHaveCount(0);
   });
 }
+
+for (const [label, url] of [
+  ['React compilé', 'http://127.0.0.1:4173'],
+  ['HTML portable', 'http://127.0.0.1:4174'],
+]) {
+  test(label + ': un résultat incohérent bloque les rapports et exports', async ({ page }) => {
+    await page.goto(url);
+    await page.getByRole('button', { name: 'Saisie Tableur' }).click();
+    await page.getByRole('spinbutton', { name: /Candidats admis DNB pour/ }).first().fill('999');
+    await page.getByRole('button', { name: 'Rapport', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('Rapport non validé');
+    await expect(page.getByRole('button', { name: 'Imprimer ou Enregistrer en PDF' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Présentation', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('Présentation non validée');
+    await expect(page.getByRole('button', { name: /Exporter Présentation LibreOffice/ })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Capturer slide (PNG)' })).toBeDisabled();
+  });
+}

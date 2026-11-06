@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { SessionData, COLLEGE_PALETTE } from '../types';
 import { calculateBassinStats, computeDnb, computeCfg } from '../utils/calculations';
+import { collectDataIssues } from '../utils/dataIntegrity';
 
 ChartJS.register(
   CategoryScale,
@@ -47,6 +48,7 @@ interface DashboardViewProps {
 export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = false }) => {
   const establishments = session.establishments;
   const stats = calculateBassinStats(establishments);
+  const dataIssues = collectDataIssues(establishments);
 
   // Mode de coloration : par couleur de collège ou par seuil de réussite
   const [colorMode, setColorMode] = useState<'college' | 'threshold'>('college');
@@ -318,6 +320,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
 
   return (
     <div className="space-y-8 pb-16 transition-colors">
+      {dataIssues.length > 0 && (
+        <div role="alert" className="rounded-xl border-2 border-red-600 bg-red-50 dark:bg-red-950 text-red-900 dark:text-red-100 p-4">
+          <strong>Statistiques non validées : chiffres incohérents.</strong>
+          <ul className="list-disc ml-5 text-xs">{dataIssues.map((issue, i) => <li key={i}>{issue}</li>)}</ul>
+        </div>
+      )}
       {/* Barre supérieure : Commutateur de mode couleur */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs gap-3">
         <div className="flex items-center gap-2">

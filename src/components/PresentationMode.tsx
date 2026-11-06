@@ -19,6 +19,7 @@ import {
 import { toPng, toBlob } from 'html-to-image';
 import { SessionData, PresentationSettings, DEFAULT_PRESENTATION_SETTINGS } from '../types';
 import { calculateBassinStats, computeDnb, computeCfg } from '../utils/calculations';
+import { collectDataIssues } from '../utils/dataIntegrity';
 import { exportPresentationToPptx } from '../utils/pptxExport';
 
 interface PresentationModeProps {
@@ -60,6 +61,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
 
   const establishments = session.establishments;
   const stats = calculateBassinStats(establishments);
+  const dataIssues = collectDataIssues(establishments);
 
   const nextSlide = () => setSlidePosition((prev) => Math.min(prev + 1, totalSlides - 1));
   const prevSlide = () => setSlidePosition((prev) => Math.max(prev - 1, 0));
@@ -90,7 +92,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
 
   // 1. Exporter la diapositive active en image PNG HD
   const handleExportCurrentSlidePng = async () => {
-    if (!slideRef.current) return;
+    if (!slideRef.current || dataIssues.length) return;
     try {
       const dataUrl = await toPng(slideRef.current, { quality: 0.98, pixelRatio: 2 });
       const link = document.createElement('a');
@@ -105,7 +107,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
 
   // 2. Copier la diapositive active directement dans le presse-papier
   const handleCopyCurrentSlide = async () => {
-    if (!slideRef.current) return;
+    if (!slideRef.current || dataIssues.length) return;
     try {
       const blob = await toBlob(slideRef.current, { quality: 0.98, pixelRatio: 2 });
       if (blob && navigator.clipboard && (window as any).ClipboardItem) {
@@ -125,6 +127,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
 
   // 3. Exporter toute la présentation au format LibreOffice Impress / PowerPoint (.pptx)
   const handleExportPptx = async () => {
+    if (dataIssues.length) return;
     try {
       setIsExportingPptx(true);
       await exportPresentationToPptx(session, settings);
@@ -166,7 +169,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
           {/* Bouton Exporter toute la présentation LibreOffice / PowerPoint */}
           <button
             onClick={handleExportPptx}
-            disabled={isExportingPptx}
+            disabled={isExportingPptx || dataIssues.length > 0}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-xs transition"
             title="Télécharger toute la présentation (.pptx) prête à ouvrir dans LibreOffice Impress ou PowerPoint"
           >
@@ -177,6 +180,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
           {/* Bouton Capturer cette slide en image */}
           <button
             onClick={handleExportCurrentSlidePng}
+            disabled={dataIssues.length > 0}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition"
             title="Télécharger cette diapositive en image HD (PNG)"
           >
@@ -187,6 +191,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
           {/* Bouton Copier dans le presse-papier */}
           <button
             onClick={handleCopyCurrentSlide}
+            disabled={dataIssues.length > 0}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition"
             title="Copier l'image de cette diapositive pour la coller (Ctrl+V) directement dans LibreOffice ou PowerPoint"
           >
@@ -237,6 +242,12 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
         </div>
       )}
       <p className="sr-only">Couverture : DNB {stats.dnbRenseignes}/{stats.totalEtablissements}, CFG {stats.cfgRenseignes}/{stats.totalEtablissements}.</p>
+      {dataIssues.length > 0 && (
+        <div role="alert" className="bg-red-950 text-red-100 border-2 border-red-500 rounded-lg p-3 text-xs max-h-32 overflow-auto">
+          <strong>Présentation non validée : exports désactivés tant que les résultats sont incohérents.</strong>
+          <ul className="list-disc ml-5 mt-1">{dataIssues.map((issue, i) => <li key={i}>{issue}</li>)}</ul>
+        </div>
+      )}
       {/* Contenu de la diapositive active (capturable en haute fidélité) */}
       <div
         ref={slideRef}

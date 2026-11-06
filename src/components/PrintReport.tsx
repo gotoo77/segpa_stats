@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Printer, FileText, Sun, Moon, Eye } from 'lucide-react';
 import { SessionData } from '../types';
 import { calculateBassinStats, computeDnb, computeCfg } from '../utils/calculations';
+import { collectDataIssues } from '../utils/dataIntegrity';
 
 interface PrintReportProps {
   session: SessionData;
@@ -10,9 +11,11 @@ interface PrintReportProps {
 export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
   const establishments = session.establishments;
   const stats = calculateBassinStats(establishments);
+  const dataIssues = collectDataIssues(establishments);
   const [reportTheme, setReportTheme] = useState<'paper' | 'dark'>('paper');
 
   const handlePrint = () => {
+    if (dataIssues.length) return;
     window.print();
   };
 
@@ -63,6 +66,8 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
 
           <button
             onClick={handlePrint}
+            disabled={dataIssues.length > 0}
+            title={dataIssues.length ? 'Corrigez les résultats incohérents avant impression' : undefined}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs transition shadow-sm"
           >
             <Printer className="w-4 h-4" />
@@ -124,6 +129,12 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
           <p role="note" className="border-2 border-amber-600 rounded-md p-2 text-xs font-bold text-amber-900 bg-amber-50">
             Données fictives de démonstration : ne pas utiliser comme résultats officiels.
           </p>
+        )}
+        {dataIssues.length > 0 && (
+          <div role="alert" className="rounded-xl border-2 border-red-600 bg-red-50 text-red-950 p-4 space-y-2">
+            <strong>Rapport non validé : corrigez les incohérences avant impression ou diffusion.</strong>
+            <ul className="list-disc ml-5 text-xs">{dataIssues.map((issue, i) => <li key={i}>{issue}</li>)}</ul>
+          </div>
         )}
         {/* Synthèse globale en encadrés */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center">

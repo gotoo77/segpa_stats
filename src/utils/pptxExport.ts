@@ -1,8 +1,11 @@
 import pptxgenjs from 'pptxgenjs';
 import { SessionData, PresentationSettings, DEFAULT_PRESENTATION_SETTINGS } from '../types';
 import { calculateBassinStats, computeDnb, computeCfg } from './calculations';
+import { collectDataIssues } from './dataIntegrity';
 
 export async function exportPresentationToPptx(session: SessionData, settings: PresentationSettings = DEFAULT_PRESENTATION_SETTINGS) {
+  const issues = collectDataIssues(session.establishments);
+  if (issues.length) throw new Error('Résultats incohérents : ' + issues.join('; '));
   const pptx = new pptxgenjs();
 
   pptx.layout = 'LAYOUT_16x9';
