@@ -13,6 +13,8 @@ export function createSessionWorkbook(session: SessionData): XLSX.WorkBook {
     Identifiant: e.id, 'Établissement': e.name, Ville: e.city || '',
     Bassin: e.bassin || '', Couleur: e.color || '',
     Effectif_Classe: e.effectifClasse,
+    DNB_Renseigne: e.dnbComplete === false ? 'NON' : 'OUI',
+    CFG_Renseigne: e.cfgComplete === false ? 'NON' : 'OUI',
     DNB_Inscrits: e.dnb.inscrits, DNB_Presents: e.dnb.presents ?? '',
     DNB_Admis: e.dnb.admis, DNB_Refuses: e.dnb.refuses,
     DNB_Mention_AB: e.dnb.mentions.ab, DNB_Mention_B: e.dnb.mentions.b,
@@ -29,6 +31,7 @@ export function createSessionWorkbook(session: SessionData): XLSX.WorkBook {
       'Établissement': e.name,
       'Secteur / Ville': e.city || '',
       'Effectif Classe 3e': e.effectifClasse,
+      'Statut': e.dnbComplete === false ? 'N.R.' : 'Renseigné',
       'Candidats Inscrits': e.dnb.inscrits,
       'Candidats Admis': e.dnb.admis,
       'Candidats Refusés': e.dnb.refuses,
@@ -38,8 +41,8 @@ export function createSessionWorkbook(session: SessionData): XLSX.WorkBook {
       'Total Mentions': c.totalMentions,
       'Sans Mention': c.sansMention,
       '% Présentation DNB (/ Classe)': `${c.tauxPresentation}%`,
-      '% Réussite / Inscrits': `${c.tauxInscrits}%`,
-      '% Réussite / Présents': `${c.tauxPresents}%`,
+      '% Réussite / Inscrits': e.dnbComplete === false ? 'N.R.' : `${c.tauxInscrits}%`,
+      '% Réussite / Présents': e.dnbComplete === false ? 'N.R.' : `${c.tauxPresents}%`,
       '% Mentions / Admis': `${c.tauxMentions}%`,
     };
   });
@@ -53,11 +56,12 @@ export function createSessionWorkbook(session: SessionData): XLSX.WorkBook {
       'Établissement': e.name,
       'Secteur / Ville': e.city || '',
       'Effectif Classe 3e': e.effectifClasse,
+      'Statut': e.cfgComplete === false ? 'N.R.' : 'Renseigné',
       'Candidats Inscrits': e.cfg.inscrits,
       'Candidats Admis': e.cfg.admis,
       'Candidats Refusés': e.cfg.refuses,
-      '% Réussite / Inscrits': `${c.tauxInscrits}%`,
-      '% Réussite / Présents': `${c.tauxPresents}%`,
+      '% Réussite / Inscrits': e.cfgComplete === false ? 'N.R.' : `${c.tauxInscrits}%`,
+      '% Réussite / Présents': e.cfgComplete === false ? 'N.R.' : `${c.tauxPresents}%`,
     };
   });
   const wsCfg = XLSX.utils.json_to_sheet(cfgRows);
@@ -71,10 +75,10 @@ export function createSessionWorkbook(session: SessionData): XLSX.WorkBook {
       'Établissement': e.name,
       'Effectif Classe 3e': e.effectifClasse,
       'DNB Inscrits': e.dnb.inscrits,
-      'DNB % Présentation': `${dnbC.tauxPresentation}%`,
-      'DNB % Réussite': `${dnbC.tauxPresents}%`,
+      'DNB % Présentation': e.dnbComplete === false ? 'N.R.' : `${dnbC.tauxPresentation}%`,
+      'DNB % Réussite': e.dnbComplete === false ? 'N.R.' : `${dnbC.tauxPresents}%`,
       'CFG Inscrits': e.cfg.inscrits,
-      'CFG % Réussite': `${cfgC.tauxPresents}%`,
+      'CFG % Réussite': e.cfgComplete === false ? 'N.R.' : `${cfgC.tauxPresents}%`,
     };
   });
   const wsCombined = XLSX.utils.json_to_sheet(combinedRows);
@@ -175,6 +179,8 @@ export function parseWorkbook(workbook: XLSX.WorkBook, defaultBassin = 'Douaisis
     const effectif = numeric(row, ['Effectif_Classe', 'Effectif Classe 3e', 'Effectif Classe', 'Effectif'],
       numeric(cfgRow, ['CFG_Inscrits', 'Candidats Inscrits'], 0, line + ' CFG inscrits'), line + ' effectif classe');
     const dnbPresents = optionalNumber(row, ['DNB_Presents'], line + ' DNB présents');
+    const dnbComplete = String(pick(row, ['DNB_Renseigne']) ?? 'OUI').trim().toUpperCase() !== 'NON';
+    const cfgComplete = String(pick(row, ['CFG_Renseigne']) ?? 'OUI').trim().toUpperCase() !== 'NON';
     const cfgPresents = optionalNumber(cfgRow, ['CFG_Presents'], line + ' CFG présents');
     const dnb = {
       inscrits: numeric(row, ['DNB_Inscrits', 'Candidats Inscrits', 'DNB Inscrits'], 0, line + ' DNB inscrits'),
@@ -193,7 +199,10 @@ export function parseWorkbook(workbook: XLSX.WorkBook, defaultBassin = 'Douaisis
       admis: numeric(cfgRow, ['CFG_Admis', 'CFG Candidats Admis', 'Candidats Admis'], 0, line + ' CFG admis'),
       refuses: numeric(cfgRow, ['CFG_Refuses', 'CFG Candidats Refusés', 'Candidats Refusés'], 0, line + ' CFG refusés'),
     };
-    const errors = [...computeDnb(dnb, effectif).errors, ...computeCfg(cfg, effectif).errors];
+    const errors = [
+      ...(dnbComplete ? computeDnb(dnb, effectif).errors : []),
+      ...(cfgComplete ? computeCfg(cfg, effectif).errors : []),
+    ];
     if (errors.length) throw new Error(line + ' (' + name + ') : ' + errors.join('; '));
     const color = String(pick(row, ['Couleur']) || '').trim();
     return {
@@ -202,6 +211,8 @@ export function parseWorkbook(workbook: XLSX.WorkBook, defaultBassin = 'Douaisis
       bassin: String(pick(row, ['Bassin']) || defaultBassin).trim(),
       ...(color ? { color } : {}),
       effectifClasse: effectif, dnb, cfg,
+      ...(dnbComplete ? {} : { dnbComplete: false }),
+      ...(cfgComplete ? {} : { cfgComplete: false }),
     };
   });
   const ids = new Set(establishments.map((item) => item.id));
