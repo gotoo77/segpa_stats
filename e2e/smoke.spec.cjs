@@ -139,3 +139,26 @@ for (const [label, url] of [
     await expect(page.getByRole('alert')).toContainText('Sauvegarde locale impossible');
   });
 }
+
+for (const [label, url] of [
+  ['React compilé', 'http://127.0.0.1:4173'],
+  ['HTML portable', 'http://127.0.0.1:4174'],
+]) {
+  test(label + ': fractions et pourcentages DNB cohérents avec des résultats manquants', async ({ page }) => {
+    await page.goto(url);
+    const fraction = await page.evaluate(() => {
+      const key = 'statsegpa_sessions_v1';
+      const sessions = JSON.parse(localStorage.getItem(key));
+      const schools = sessions['2026'].establishments;
+      const relevant = schools.filter(e => e.bassin === 'Douaisis');
+      relevant[1].dnbComplete = false;
+      localStorage.setItem(key, JSON.stringify(sessions));
+      const known = relevant.filter(e => e.dnbComplete !== false);
+      return known.reduce((sum, e) => sum + e.dnb.inscrits, 0) + ' inscrits / ' +
+        known.reduce((sum, e) => sum + e.effectifClasse, 0) + ' élèves';
+    });
+    await page.reload();
+    await page.getByRole('button', { name: 'Rapport', exact: true }).click();
+    await expect(page.locator('.report-paper')).toContainText(fraction);
+  });
+}

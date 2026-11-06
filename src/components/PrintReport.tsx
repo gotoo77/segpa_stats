@@ -150,7 +150,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
               {stats.dnbRenseignes ? stats.tauxMoyenPresentationDnb + '%' : 'N.R.'}
             </span>
             <span className={`block text-[11px] font-medium ${isPaper ? 'text-slate-600' : 'text-slate-400'}`}>
-              {stats.dnb.inscrits} inscrits / {stats.totalEffectifClasse}
+              {stats.dnb.inscrits} inscrits / {stats.dnbEffectifClasse} élèves (DNB renseigné)
             </span>
           </div>
 
@@ -315,7 +315,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
                 <tr>
                   <td className="p-2 border-r border-inherit uppercase">TOTAL / MOYENNE BASSIN</td>
                   <td className={`p-2 text-center border-r border-inherit ${isPaper ? 'bg-amber-200 text-amber-950' : 'bg-amber-900/60 text-amber-200'}`}>
-                    {stats.totalEffectifClasse}
+                    {stats.dnbEffectifClasse}
                   </td>
                   <td className="p-2 text-center border-r border-inherit">{stats.dnb.inscrits}</td>
                   <td className="p-2 text-center border-r border-inherit">{stats.dnbRenseignes ? stats.tauxMoyenPresentationDnb + '%' : 'N.R.'}</td>
@@ -434,7 +434,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
                 <tr>
                   <td className="p-2 border-r border-inherit uppercase">TOTAL / MOYENNE BASSIN</td>
                   <td className={`p-2 text-center border-r border-inherit ${isPaper ? 'bg-amber-200 text-amber-950' : 'bg-amber-900/60 text-amber-200'}`}>
-                    {stats.totalEffectifClasse}
+                    {stats.cfgEffectifClasse}
                   </td>
                   <td className="p-2 text-center border-r border-inherit">{stats.cfg.inscrits}</td>
                   <td className={`p-2 text-center border-r border-inherit ${isPaper ? 'text-emerald-900' : 'text-emerald-300'}`}>

@@ -280,7 +280,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
                 <span>Élèves en 3e SEGPA</span>
               </div>
               <div className="bg-slate-900/90 border border-slate-800 px-6 py-3 rounded-2xl">
-                <span className="block text-2xl font-bold text-indigo-400">{stats.tauxMoyenPresentationDnb}%</span>
+                <span className="block text-2xl font-bold text-indigo-400">{stats.dnbRenseignes ? stats.tauxMoyenPresentationDnb + '%' : 'N.R.'}</span>
                 <span>Présentation au DNB Pro</span>
               </div>
             </div>
@@ -305,7 +305,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
                 <div className="mt-6 pt-4 border-t border-slate-800 space-y-2 text-sm">
                   <div className="flex justify-between text-slate-300">
                     <span>Taux d'inscription :</span>
-                    <strong className="text-indigo-400">{stats.tauxMoyenPresentationDnb}% de la classe ({stats.dnb.inscrits}/{stats.totalEffectifClasse})</strong>
+                    <strong className="text-indigo-400">{stats.dnbRenseignes ? stats.tauxMoyenPresentationDnb + '%' : 'N.R.'} de la classe ({stats.dnb.inscrits}/{stats.dnbEffectifClasse}, collèges renseignés)</strong>
                   </div>
                   <div className="flex justify-between text-slate-300">
                     <span>Candidats admis :</span>
@@ -328,7 +328,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
                 <div className="mt-6 pt-4 border-t border-slate-800 space-y-2 text-sm">
                   <div className="flex justify-between text-slate-300">
                     <span>Inscription :</span>
-                    <strong className="text-emerald-400">100% des élèves de 3e SEGPA</strong>
+                    <strong className="text-emerald-400">{stats.cfg.inscrits} inscrits / {stats.cfgEffectifClasse} élèves (collèges renseignés)</strong>
                   </div>
                   <div className="flex justify-between text-slate-300">
                     <span>Candidats admis :</span>
@@ -483,13 +483,13 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
               <div className="flex items-start gap-3">
                 <span className="w-6 h-6 rounded-full bg-emerald-900/60 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">✓</span>
                 <p>
-                  <strong>CFG :</strong> Un ancrage fort garantissant à la quasi-totalité des {stats.totalEffectifClasse} élèves de 3e SEGPA l'obtention de leur premier diplôme officiel.
+                  <strong>CFG :</strong> {stats.cfg.admis} admis sur {stats.cfg.presents} présents, parmi {stats.cfgRenseignes} établissement(s) renseigné(s).
                 </p>
               </div>
               <div className="flex items-start gap-3">
                 <span className="w-6 h-6 rounded-full bg-blue-900/60 text-blue-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">✓</span>
                 <p>
-                  <strong>DNB Professionnel :</strong> Un taux de présentation de <strong>{stats.tauxMoyenPresentationDnb}%</strong> et une réussite de <strong>{stats.dnbRenseignes ? stats.dnb.tauxMoyenPresents + '%' : 'N.R.'}</strong>, avec de belles disparités positives selon les projets d'établissement.
+                  <strong>DNB Professionnel :</strong> Un taux de présentation de <strong>{stats.dnbRenseignes ? stats.tauxMoyenPresentationDnb + '%' : 'N.R.'}</strong> et une réussite de <strong>{stats.dnbRenseignes ? stats.dnb.tauxMoyenPresents + '%' : 'N.R.'}</strong>, avec de belles disparités positives selon les projets d'établissement.
                 </p>
               </div>
               <div className="flex items-start gap-3">

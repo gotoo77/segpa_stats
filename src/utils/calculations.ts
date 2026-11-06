@@ -150,6 +150,8 @@ export function calculateBassinStats(establishments: Establishment[]): BassinSta
     dnbRenseignes,
     cfgRenseignes,
     totalEffectifClasse: totalEffectif,
+    dnbEffectifClasse: dnbEffectif,
+    cfgEffectifClasse: cfgEffectif,
     tauxMoyenPresentationDnb: dnbEffectif > 0 ? Number(((dnbInscrits / dnbEffectif) * 100).toFixed(1)) : 0,
     dnb: {
       inscrits: dnbInscrits,

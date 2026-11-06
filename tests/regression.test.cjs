@@ -68,7 +68,7 @@ test('aller-retour Excel préserve toutes les colonnes de données utiles', () =
 
 test('import Excel invalide est rejeté', () => {
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ Établissement: 'Test', Effectif_Classe: 10, DNB_Inscrits: 10, DNB_Admis: 12, DNB_Refuses: 0, CFG_Inscrits: 10, CFG_Admis: 9, CFG_Refuses: 1 }]), 'Donnees_StatSEGPA');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ Établissement: 'Test', Effectif_Classe: 10, DNB_Inscrits: 10, DNB_Admis: 12, DNB_Refuses: 0, DNB_Mention_AB: 0, DNB_Mention_B: 0, DNB_Mention_TB: 0, CFG_Inscrits: 10, CFG_Admis: 9, CFG_Refuses: 1 }]), 'Donnees_StatSEGPA');
   assert.throws(() => excel.parseWorkbook(wb), /Admis|Présents/);
 });
 
@@ -208,4 +208,20 @@ test('Excel : données incomplètes expressément N.R. ne deviennent pas des tau
   const [e] = excel.parseWorkbook(wb);
   assert.equal(e.dnbComplete, false);
   assert.equal(e.cfgComplete, false);
+});
+
+
+test('statistiques : effectif DNB et effectif global sont des dénominateurs distincts', () => {
+  const complete = item({ id: 'A', effectifClasse: 10, dnb: {
+    inscrits: 10, admis: 10, refuses: 0, mentions: { ab: 0, b: 0, tb: 0 },
+  }, cfg: { inscrits: 10, admis: 10, refuses: 0 } });
+  const pending = item({ id: 'B', effectifClasse: 30, dnbComplete: false,
+    cfgComplete: false, dnb: { inscrits: 0, admis: 0, refuses: 0, mentions: { ab: 0, b: 0, tb: 0 } },
+    cfg: { inscrits: 0, admis: 0, refuses: 0 } });
+  const result = calculations.calculateBassinStats([complete, pending]);
+  assert.equal(result.totalEffectifClasse, 40);
+  assert.equal(result.dnbEffectifClasse, 10);
+  assert.equal(result.cfgEffectifClasse, 10);
+  assert.equal(result.dnb.inscrits, 10);
+  assert.equal(result.tauxMoyenPresentationDnb, 100);
 });

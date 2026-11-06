@@ -94,6 +94,10 @@ export interface BassinStats {
   dnbRenseignes: number;
   cfgRenseignes: number;
   totalEffectifClasse: number;
+  /** Effectif des seuls collèges dont le DNB est renseigné : dénominateur du taux de présentation. */
+  dnbEffectifClasse: number;
+  /** Effectif des seuls collèges dont le CFG est renseigné. */
+  cfgEffectifClasse: number;
   tauxMoyenPresentationDnb: number;
   dnb: {
     inscrits: number;

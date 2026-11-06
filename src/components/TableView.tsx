@@ -399,7 +399,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
                 <tr className="bg-slate-800 text-white font-bold border-t-2 border-slate-900">
                   <td className="py-3 px-4 uppercase text-xs tracking-wider">TOTAL / MOYENNE BASSIN</td>
                   <td className="py-3 px-3 text-center bg-amber-950 text-amber-200 border-x border-slate-700">
-                    {bassinStats.totalEffectifClasse}
+                    {bassinStats.dnbEffectifClasse}
                   </td>
                   <td className="py-3 px-3 text-center text-slate-200">
                     {bassinStats.dnb.inscrits}
@@ -605,7 +605,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
                 <tr className="bg-slate-800 text-white font-bold border-t-2 border-slate-900">
                   <td className="py-3 px-4 uppercase text-xs tracking-wider">TOTAL / MOYENNE BASSIN</td>
                   <td className="py-3 px-3 text-center bg-amber-950 text-amber-200 border-x border-slate-700">
-                    {bassinStats.totalEffectifClasse}
+                    {bassinStats.cfgEffectifClasse}
                   </td>
                   <td className="py-3 px-3 text-center text-slate-200">{bassinStats.cfg.inscrits}</td>
                   <td className="py-3 px-3 text-center text-emerald-300 font-extrabold">{bassinStats.cfg.admis}</td>

@@ -378,8 +378,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
             <span className="text-xs font-medium text-slate-400">de la classe</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-2">
-            <span><strong>{stats.dnb.inscrits}</strong> inscrits / {stats.totalEffectifClasse}</span>
-            <span className="text-indigo-600 dark:text-indigo-400 font-semibold">{stats.totalEffectifClasse} élèves en 3e</span>
+            <span><strong>{stats.dnb.inscrits}</strong> inscrits / {stats.dnbEffectifClasse}</span>
+            <span className="text-indigo-600 dark:text-indigo-400 font-semibold">{stats.totalEffectifClasse} élèves en 3e au total</span>
           </div>
         </div>
 

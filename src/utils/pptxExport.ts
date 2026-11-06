@@ -16,6 +16,9 @@ export async function exportPresentationToPptx(session: SessionData, settings: P
   const stats = calculateBassinStats(session.establishments);
   const yearText = session.year;
   const bassinText = settings.badge.trim() || session.bassinName;
+  const dnbPresentation = stats.dnbRenseignes ? stats.tauxMoyenPresentationDnb + '%' : 'N.R.';
+  const dnbSuccess = stats.dnbRenseignes ? stats.dnb.tauxMoyenPresents + '%' : 'N.R.';
+  const cfgSuccess = stats.cfgRenseignes ? stats.cfg.tauxMoyenPresents + '%' : 'N.R.';
 
   // --------------------------------------------------------------------------
   // SLIDE 1 : Titre / Page de garde
@@ -168,12 +171,12 @@ export async function exportPresentationToPptx(session: SessionData, settings: P
     rectRadius: 0.15,
   });
   slide2.addText('DNB PROFESSIONNEL', { x: 1.3, y: 2.3, fontSize: 16, bold: true, color: '60a5fa' });
-  slide2.addText(`${stats.dnb.tauxMoyenPresents}%`, { x: 1.3, y: 2.8, fontSize: 48, bold: true, color: 'ffffff' });
+  slide2.addText(dnbSuccess, { x: 1.3, y: 2.8, fontSize: 48, bold: true, color: 'ffffff' });
   slide2.addText('de réussite sur les candidats présents', { x: 1.3, y: 3.9, fontSize: 12, color: '94a3b8' });
 
   slide2.addText([
     { text: `• Taux d'inscription : `, options: { color: 'cbd5e1', bold: false } },
-    { text: `${stats.tauxMoyenPresentationDnb}% de la classe\n`, options: { color: '60a5fa', bold: true } },
+    { text: `${dnbPresentation} (${stats.dnb.inscrits}/${stats.dnbEffectifClasse} élèves renseignés)\n`, options: { color: '60a5fa', bold: true } },
     { text: `• Candidats admis : `, options: { color: 'cbd5e1', bold: false } },
     { text: `${stats.dnb.admis} / ${stats.dnb.presents} présents\n`, options: { color: 'ffffff', bold: true } },
     { text: `• Mentions décernées : `, options: { color: 'cbd5e1', bold: false } },
@@ -191,12 +194,12 @@ export async function exportPresentationToPptx(session: SessionData, settings: P
     rectRadius: 0.15,
   });
   slide2.addText('CERTIFICAT DE FORMATION GÉNÉRALE', { x: 7.1, y: 2.3, fontSize: 16, bold: true, color: '2dd4bf' });
-  slide2.addText(`${stats.cfg.tauxMoyenPresents}%`, { x: 7.1, y: 2.8, fontSize: 48, bold: true, color: 'ffffff' });
+  slide2.addText(cfgSuccess, { x: 7.1, y: 2.8, fontSize: 48, bold: true, color: 'ffffff' });
   slide2.addText('de réussite sur l’ensemble de la promotion', { x: 7.1, y: 3.9, fontSize: 12, color: '94a3b8' });
 
   slide2.addText([
     { text: `• Inscription : `, options: { color: 'cbd5e1', bold: false } },
-    { text: `100% des élèves de 3e SEGPA\n`, options: { color: '34d399', bold: true } },
+    { text: `${stats.cfg.inscrits}/${stats.cfgEffectifClasse} élèves des collèges renseignés\n`, options: { color: '34d399', bold: true } },
     { text: `• Candidats admis : `, options: { color: 'cbd5e1', bold: false } },
     { text: `${stats.cfg.admis} / ${stats.cfg.presents} élèves\n`, options: { color: 'ffffff', bold: true } },
     { text: `• Collèges à 100% : `, options: { color: 'cbd5e1', bold: false } },
@@ -315,7 +318,7 @@ export async function exportPresentationToPptx(session: SessionData, settings: P
   slide5.background = { color: '0f172a' };
 
   slide5.addText('CERTIFICAT DE FORMATION GÉNÉRALE', { x: 1.0, y: 0.6, fontSize: 13, bold: true, color: '2dd4bf' });
-  slide5.addText('Le Premier Diplôme d’État (100% des élèves inscrits)', { x: 1.0, y: 1.0, fontSize: 24, bold: true, color: 'ffffff' });
+  slide5.addText('CFG : résultats des établissements renseignés', { x: 1.0, y: 1.0, fontSize: 24, bold: true, color: 'ffffff' });
 
   const cfgTableRows: pptxgenjs.TableRow[] = [
     [
@@ -374,10 +377,10 @@ export async function exportPresentationToPptx(session: SessionData, settings: P
 
   slide6.addText([
     { text: '1. Une diplomation massive et sécurisante au CFG :\n', options: { fontSize: 16, bold: true, color: '2dd4bf' } },
-    { text: `Sur l'ensemble du réseau, ${stats.cfg.admis} élèves sur ${stats.totalEffectifClasse} obtiennent leur diplôme d'État (${stats.cfg.tauxMoyenPresents}% de réussite), validant les compétences du socle commun avant leur orientation en LP ou CFA.\n\n`, options: { fontSize: 13, color: 'cbd5e1' } },
+    { text: `Parmi les ${stats.cfgRenseignes} établissement(s) renseigné(s), ${stats.cfg.admis} élèves sur ${stats.cfg.presents} présents ont obtenu le CFG (${cfgSuccess} de réussite).\n\n`, options: { fontSize: 13, color: 'cbd5e1' } },
 
     { text: '2. Un engagement soutenu au DNB Professionnel :\n', options: { fontSize: 16, bold: true, color: '60a5fa' } },
-    { text: `Avec un taux moyen d'inscription de ${stats.tauxMoyenPresentationDnb}% et un taux de réussite de ${stats.dnb.tauxMoyenPresents}%, le brevet professionnel confirme la capacité des élèves de SEGPA à réussir des épreuves certificatives nationales.\n\n`, options: { fontSize: 13, color: 'cbd5e1' } },
+    { text: `Sur les ${stats.dnbRenseignes} établissement(s) renseigné(s), ${stats.dnb.inscrits} élèves sur ${stats.dnbEffectifClasse} sont inscrits au DNB professionnel (${dnbPresentation}) ; le taux de réussite des présents est de ${dnbSuccess}.\n\n`, options: { fontSize: 13, color: 'cbd5e1' } },
 
     { text: '3. La valorisation par les mentions comme levier d’ambition :\n', options: { fontSize: 16, bold: true, color: 'f59e0b' } },
     { text: `${stats.dnb.totalMentions} mentions décernées dont ${stats.dnb.mentionsTB} mentions Très Bien, constituant un tremplin remarquable pour l'estime de soi et la réussite dans la voie professionnelle.`, options: { fontSize: 13, color: 'cbd5e1' } },
