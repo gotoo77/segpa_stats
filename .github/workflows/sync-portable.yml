@@ -8,6 +8,7 @@ permissions:
 jobs:
   validate-and-package:
     runs-on: ubuntu-24.04
+    container: mcr.microsoft.com/playwright:v1.56.1-noble
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,7 +23,6 @@ jobs:
       - name: Install Playwright for browser smoke checks
         run: |
           npm install --no-save --package-lock=false @playwright/test@1.56.1
-          npx playwright install --with-deps chromium
       - name: Test React and portable HTML in Chromium
         run: npx playwright test
       - name: Upload browser failure artifacts
