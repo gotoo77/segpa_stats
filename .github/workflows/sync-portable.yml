@@ -41,6 +41,7 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           cd "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git rev-parse --show-toplevel
           if ! git diff --quiet -- StatSEGPA_Portable.html; then
             git config user.name 'github-actions[bot]'
