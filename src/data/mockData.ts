@@ -26,6 +26,7 @@ const BASE_ESTABLISHMENTS_CONFIG = [
 // =============================================================================
 export const session2026: SessionData = {
   id: 'session-2026',
+  dataOrigin: 'demo',
   year: 'Session 2026',
   bassinName: "Bassin d'éducation et de formation SEGPA du Douaisis",
   regions: DEFAULT_REGIONS,
@@ -249,6 +250,7 @@ export const session2026: SessionData = {
 // =============================================================================
 export const session2025: SessionData = {
   id: 'session-2025',
+  dataOrigin: 'demo',
   year: 'Session 2025',
   bassinName: "Bassin d'éducation et de formation SEGPA du Douaisis",
   regions: DEFAULT_REGIONS,
@@ -425,6 +427,7 @@ export const session2025: SessionData = {
 // =============================================================================
 export const session2024: SessionData = {
   id: 'session-2024',
+  dataOrigin: 'demo',
   year: 'Session 2024',
   bassinName: "Bassin d'éducation et de formation SEGPA du Douaisis",
   regions: DEFAULT_REGIONS,

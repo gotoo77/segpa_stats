@@ -9,6 +9,7 @@ import {
   RotateCcw, 
   ShieldCheck, 
   Calendar,
+  CalendarRange,
   School,
   Inbox,
   UserCheck,
@@ -21,8 +22,8 @@ import {
 import { SessionData, RegionConfig, DEFAULT_REGIONS } from '../types';
 
 interface HeaderProps {
-  currentTab: 'dashboard' | 'table' | 'review' | 'presentation' | 'print';
-  setCurrentTab: (tab: 'dashboard' | 'table' | 'review' | 'presentation' | 'print') => void;
+  currentTab: 'dashboard' | 'history' | 'table' | 'review' | 'presentation' | 'print';
+  setCurrentTab: (tab: 'dashboard' | 'history' | 'table' | 'review' | 'presentation' | 'print') => void;
   session: SessionData;
   setSession: React.Dispatch<React.SetStateAction<SessionData>>;
   bassinFilter: string;
@@ -130,6 +131,12 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <BarChart3 className="w-4 h-4" aria-hidden="true" />
               Graphiques
+            </button>
+            <button onClick={() => setCurrentTab('history')} aria-current={currentTab === 'history' ? 'page' : undefined}
+              className={'flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ' + (currentTab === 'history'
+                ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 font-semibold shadow-xs'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700')}>
+              <CalendarRange className="w-4 h-4" /> Historique
             </button>
             <button
               onClick={() => setCurrentTab('table')}

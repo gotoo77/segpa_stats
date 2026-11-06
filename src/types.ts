@@ -58,6 +58,7 @@ export interface SessionData {
   bassinName: string;
   regions?: RegionConfig[];
   establishments: Establishment[];
+  dataOrigin?: 'demo' | 'user';
   submissions?: ColleagueSubmission[];
   notes?: string;
   lastUpdated: string;

@@ -4,6 +4,8 @@ import { initialSessionData, DEFAULT_SESSIONS } from './data/mockData';
 import { Header } from './components/Header';
 import { TableView } from './components/TableView';
 import { DashboardView } from './components/DashboardView';
+import { HistoryView } from './components/HistoryView';
+import { version as appVersion } from '../package.json';
 import { ReviewInboxView } from './components/ReviewInboxView';
 import { PresentationMode } from './components/PresentationMode';
 import { PrintReport } from './components/PrintReport';
@@ -105,7 +107,7 @@ export const App: React.FC = () => {
     catch (error) { console.error('Sauvegarde des sessions impossible', error); }
   }, [sessions]);
   useEffect(() => { try { localStorage.setItem(SELECTED_YEAR_KEY, activeYear); } catch {} }, [activeYear]);
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'table' | 'review' | 'presentation' | 'print'>('dashboard');
+  const [currentTab, setCurrentTab] = useState<'dashboard' | 'history' | 'table' | 'review' | 'presentation' | 'print'>('dashboard');
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [isTeacherFormOpen, setIsTeacherFormOpen] = useState(false);
   const [isRegionManagerOpen, setIsRegionManagerOpen] = useState(false);
@@ -193,6 +195,7 @@ export const App: React.FC = () => {
       {/* Contenu principal */}
       <main id="main-content" tabIndex={-1} className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 w-full focus:outline-hidden">
         {currentTab === 'dashboard' && <DashboardView session={activeSession} isDark={isDark} />}
+        {currentTab === 'history' && <HistoryView sessions={sessions} bassinFilter={bassinFilter} />}
         {currentTab === 'table' && (
           <TableView
             session={activeSession}
@@ -251,6 +254,13 @@ export const App: React.FC = () => {
         onClose={() => setIsImportExportOpen(false)}
         session={session}
         setSession={setSession}
+        sessions={sessions}
+        activeYear={activeYear}
+        onRestoreAll={(newSessions, year) => {
+          setSessions(newSessions);
+          setActiveYear(year);
+          setBassinFilter('all');
+        }}
       />
 
       {/* Pied de page informatif */}
@@ -259,6 +269,7 @@ export const App: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="font-bold text-slate-700 dark:text-slate-200">StatSEGPA</span>
             <span>• Outil de pilotage & analyse statistique DNB Pro & CFG</span>
+            <span className="font-mono text-[11px]" aria-label="Version de StatSEGPA">v{appVersion}</span>
           </div>
 
           <div className="flex items-center gap-4 text-[11px] flex-wrap justify-center sm:justify-end">
