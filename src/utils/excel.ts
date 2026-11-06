@@ -3,7 +3,24 @@ import { Establishment, SessionData } from '../types';
 import { computeDnb, computeCfg } from './calculations';
 
 export function exportSessionToExcel(session: SessionData) {
+  const wb = createSessionWorkbook(session);
+  XLSX.writeFile(wb, 'StatSEGPA_' + session.year.replace(/\s+/g, '_') + '.xlsx');
+}
+
+export function createSessionWorkbook(session: SessionData): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
+  const sourceRows = session.establishments.map((e) => ({
+    Identifiant: e.id, 'Établissement': e.name, Ville: e.city || '',
+    Bassin: e.bassin || '', Couleur: e.color || '',
+    Effectif_Classe: e.effectifClasse,
+    DNB_Inscrits: e.dnb.inscrits, DNB_Presents: e.dnb.presents ?? '',
+    DNB_Admis: e.dnb.admis, DNB_Refuses: e.dnb.refuses,
+    DNB_Mention_AB: e.dnb.mentions.ab, DNB_Mention_B: e.dnb.mentions.b,
+    DNB_Mention_TB: e.dnb.mentions.tb,
+    CFG_Inscrits: e.cfg.inscrits, CFG_Presents: e.cfg.presents ?? '',
+    CFG_Admis: e.cfg.admis, CFG_Refuses: e.cfg.refuses,
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sourceRows), 'Donnees_StatSEGPA');
 
   // 1. Feuille DNB PRO
   const dnbRows = session.establishments.map((e) => {
@@ -63,8 +80,7 @@ export function exportSessionToExcel(session: SessionData) {
   const wsCombined = XLSX.utils.json_to_sheet(combinedRows);
   XLSX.utils.book_append_sheet(wb, wsCombined, 'Synthèse Réseau');
 
-  const filename = `StatSEGPA_${session.year.replace(/\s+/g, '_')}.xlsx`;
-  XLSX.writeFile(wb, filename);
+  return wb;
 }
 
 export function downloadEmptyTemplate() {
@@ -89,7 +105,7 @@ export function downloadEmptyTemplate() {
       'Effectif_Classe': 14,
       'DNB_Inscrits': 13,
       'DNB_Admis': 10,
-      'DNB_Refuses': 4,
+      'DNB_Refuses': 3,
       'DNB_Mention_AB': 4,
       'DNB_Mention_B': 0,
       'DNB_Mention_TB': 0,
@@ -117,68 +133,92 @@ export function downloadEmptyTemplate() {
   XLSX.writeFile(wb, 'Modele_Saisie_StatSEGPA.xlsx');
 }
 
-export function parseExcelOrCsvFile(file: File): Promise<Establishment[]> {
+function pick(row: Record<string, unknown>, names: string[]): unknown {
+  for (const name of names) {
+    const value = row[name];
+    if (value !== undefined && value !== null && value !== '') return value;
+  }
+  return undefined;
+}
+
+function numeric(row: Record<string, unknown>, names: string[], fallback: number, label: string): number {
+  const raw = pick(row, names);
+  const value = raw === undefined ? fallback : Number(raw);
+  if (!Number.isInteger(value) || value < 0) throw new Error(label + ' : entier positif ou nul attendu');
+  return value;
+}
+
+function optionalNumber(row: Record<string, unknown>, names: string[], label: string): number | undefined {
+  return pick(row, names) === undefined ? undefined : numeric(row, names, 0, label);
+}
+
+export function parseWorkbook(workbook: XLSX.WorkBook, defaultBassin = 'Douaisis'): Establishment[] {
+  const sheetName = workbook.Sheets.Donnees_StatSEGPA ? 'Donnees_StatSEGPA' : workbook.SheetNames[0];
+  if (!sheetName) throw new Error('Classeur vide');
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[sheetName], { defval: null });
+  if (rows.length === 0) throw new Error('Aucune ligne dans le classeur');
+  const legacy = sheetName === 'DNB Professionnel';
+  if (legacy && !workbook.Sheets.CFG) throw new Error('Ancien export incomplet : feuille CFG manquante');
+  const cfgRows = new Map<string, Record<string, unknown>>();
+  if (legacy) for (const row of XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets.CFG, { defval: null })) {
+    const key = String(pick(row, ['Établissement', 'Etablissement']) || '').trim().toLowerCase();
+    if (key) cfgRows.set(key, row);
+  }
+  const establishments = rows.map((row, index) => {
+    const line = 'Ligne ' + (index + 2);
+    if (pick(row, ['DNB_Inscrits', 'Candidats Inscrits', 'DNB Inscrits', 'CFG_Inscrits']) === undefined)
+      throw new Error(line + ' : colonnes de résultats non reconnues');
+    const name = String(pick(row, ['Établissement', 'Etablissement', 'etablissement', 'Collège', 'College', 'Nom']) || '').trim();
+    if (!name) throw new Error(line + ' : nom établissement manquant');
+    const cfgRow = legacy ? cfgRows.get(name.toLowerCase()) : row;
+    if (!cfgRow) throw new Error(line + ' : résultats CFG introuvables pour ' + name);
+    const effectif = numeric(row, ['Effectif_Classe', 'Effectif Classe 3e', 'Effectif Classe', 'Effectif'],
+      numeric(cfgRow, ['CFG_Inscrits', 'Candidats Inscrits'], 0, line + ' CFG inscrits'), line + ' effectif classe');
+    const dnbPresents = optionalNumber(row, ['DNB_Presents'], line + ' DNB présents');
+    const cfgPresents = optionalNumber(cfgRow, ['CFG_Presents'], line + ' CFG présents');
+    const dnb = {
+      inscrits: numeric(row, ['DNB_Inscrits', 'Candidats Inscrits', 'DNB Inscrits'], 0, line + ' DNB inscrits'),
+      ...(dnbPresents !== undefined ? { presents: dnbPresents } : {}),
+      admis: numeric(row, ['DNB_Admis', 'Candidats Admis', 'DNB Admis'], 0, line + ' DNB admis'),
+      refuses: numeric(row, ['DNB_Refuses', 'Candidats Refusés', 'DNB Refusés'], 0, line + ' DNB refusés'),
+      mentions: {
+        ab: numeric(row, ['DNB_Mention_AB', 'Mention Assez Bien', 'AB'], 0, line + ' mention AB'),
+        b: numeric(row, ['DNB_Mention_B', 'Mention Bien', 'B'], 0, line + ' mention B'),
+        tb: numeric(row, ['DNB_Mention_TB', 'Mention Très Bien', 'TB'], 0, line + ' mention TB'),
+      },
+    };
+    const cfg = {
+      inscrits: numeric(cfgRow, ['CFG_Inscrits', 'CFG Candidats Inscrits', 'Candidats Inscrits'], effectif, line + ' CFG inscrits'),
+      ...(cfgPresents !== undefined ? { presents: cfgPresents } : {}),
+      admis: numeric(cfgRow, ['CFG_Admis', 'CFG Candidats Admis', 'Candidats Admis'], 0, line + ' CFG admis'),
+      refuses: numeric(cfgRow, ['CFG_Refuses', 'CFG Candidats Refusés', 'Candidats Refusés'], 0, line + ' CFG refusés'),
+    };
+    const errors = [...computeDnb(dnb, effectif).errors, ...computeCfg(cfg, effectif).errors];
+    if (errors.length) throw new Error(line + ' (' + name + ') : ' + errors.join('; '));
+    const color = String(pick(row, ['Couleur']) || '').trim();
+    return {
+      id: String(pick(row, ['Identifiant']) || ('imported-' + Date.now() + '-' + index)),
+      name, city: String(pick(row, ['Ville', 'Secteur / Ville']) || '').trim(),
+      bassin: String(pick(row, ['Bassin']) || defaultBassin).trim(),
+      ...(color ? { color } : {}),
+      effectifClasse: effectif, dnb, cfg,
+    };
+  });
+  const ids = new Set(establishments.map((item) => item.id));
+  if (ids.size !== establishments.length) throw new Error('Identifiants établissement dupliqués');
+  return establishments;
+}
+
+export function parseExcelOrCsvFile(file: File, defaultBassin = 'Douaisis'): Promise<Establishment[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-
-    reader.onload = (e) => {
+    reader.onload = (event) => {
       try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        const json: Record<string, any>[] = XLSX.utils.sheet_to_json(worksheet);
-
-        const establishments: Establishment[] = json.map((row, index) => {
-          const name =
-            row['Établissement'] ||
-            row['Etablissement'] ||
-            row['etablissement'] ||
-            row['Collège'] ||
-            row['College'] ||
-            row['Nom'] ||
-            `Collège ${index + 1}`;
-
-          const effectif = Number(row['Effectif_Classe'] || row['Effectif Classe'] || row['Effectif'] || 14);
-
-          const dnbInscrits = Number(row['DNB_Inscrits'] || row['Candidats Inscrits'] || row['DNB Inscrits'] || 0);
-          const dnbAdmis = Number(row['DNB_Admis'] || row['Candidats Admis'] || row['DNB Admis'] || 0);
-          const dnbRefuses = Number(row['DNB_Refuses'] || row['Candidats Refusés'] || row['DNB Refusés'] || 0);
-
-          const tb = Number(row['DNB_Mention_TB'] || row['Mention Très Bien'] || row['TB'] || 0);
-          const b = Number(row['DNB_Mention_B'] || row['Mention Bien'] || row['B'] || 0);
-          const ab = Number(row['DNB_Mention_AB'] || row['Mention Assez Bien'] || row['AB'] || 0);
-
-          const cfgInscrits = Number(row['CFG_Inscrits'] || row['CFG Candidats Inscrits'] || row['CFG Inscrits'] || effectif);
-          const cfgAdmis = Number(row['CFG_Admis'] || row['CFG Candidats Admis'] || row['CFG Admis'] || 0);
-          const cfgRefuses = Number(row['CFG_Refuses'] || row['CFG Candidats Refusés'] || row['CFG Refusés'] || 0);
-
-          return {
-            id: `imported-${Date.now()}-${index}`,
-            name: String(name).trim(),
-            city: row['Secteur / Ville'] || row['Ville'] || '',
-            effectifClasse: effectif,
-            dnb: {
-              inscrits: dnbInscrits,
-              admis: dnbAdmis,
-              refuses: dnbRefuses,
-              mentions: { tb, b, ab },
-            },
-            cfg: {
-              inscrits: cfgInscrits,
-              admis: cfgAdmis,
-              refuses: cfgRefuses,
-            },
-          };
-        });
-
-        resolve(establishments);
-      } catch (err) {
-        reject(err);
-      }
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        resolve(parseWorkbook(XLSX.read(data, { type: 'array' }), defaultBassin));
+      } catch (err) { reject(err); }
     };
-
-    reader.onerror = (err) => reject(err);
+    reader.onerror = () => reject(new Error('Lecture du fichier impossible'));
     reader.readAsArrayBuffer(file);
   });
 }
