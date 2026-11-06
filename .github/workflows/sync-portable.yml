@@ -1,7 +1,7 @@
 name: Build and synchronize portable HTML
 on:
   push:
-    branches: ['fix/data-integrity-review']
+    branches: [main, 'fix/**']
   workflow_dispatch:
 concurrency:
   group: portable-${{ github.ref }}
