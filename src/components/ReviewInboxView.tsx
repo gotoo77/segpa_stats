@@ -75,8 +75,6 @@ export const ReviewInboxView: React.FC<ReviewInboxViewProps> = ({
         cfg: targetSub.cfg,
         dnbComplete: true,
         cfgComplete: true,
-        dnbComplete: true,
-        cfgComplete: true,
       };
     } else {
       const color = targetSub.color || COLLEGE_PALETTE[session.establishments.length % COLLEGE_PALETTE.length];
@@ -89,6 +87,8 @@ export const ReviewInboxView: React.FC<ReviewInboxViewProps> = ({
         effectifClasse: targetSub.effectifClasse,
         dnb: targetSub.dnb,
         cfg: targetSub.cfg,
+        dnbComplete: true,
+        cfgComplete: true,
       };
       updatedEstablishments = [...session.establishments, newEst];
     }
