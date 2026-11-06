@@ -14,9 +14,10 @@ interface TableViewProps {
   session: SessionData;
   setSession: React.Dispatch<React.SetStateAction<SessionData>>;
   onEditEstablishment?: (est: Establishment) => void;
+  currentBassin: string;
 }
 
-export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEditEstablishment }) => {
+export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEditEstablishment, currentBassin }) => {
   const [activeSubTab, setActiveSubTab] = useState<'both' | 'dnb' | 'cfg'>('both');
   const [quickSearch, setQuickSearch] = useState('');
 
@@ -54,6 +55,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
       id: `segpa-${Date.now()}`,
       name: `Collège ${String.fromCharCode(64 + (nextNumber % 26 || 1))}`,
       city: '',
+      bassin: currentBassin === 'all' ? session.regions?.[0]?.name || 'Douaisis' : currentBassin,
       color,
       effectifClasse: 14,
       dnb: {
@@ -80,6 +82,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
       alert("Il faut au minimum un établissement dans la session.");
       return;
     }
+    if (!confirm('Supprimer cet établissement et ses résultats ?')) return;
     setSession((prev) => ({
       ...prev,
       establishments: prev.establishments.filter((e) => e.id !== id),

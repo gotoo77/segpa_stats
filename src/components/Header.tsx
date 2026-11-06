@@ -74,7 +74,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 font-medium border border-blue-200 dark:border-blue-800">
                   {bassinFilter === 'all' ? 'Tous les secteurs' : `Secteur ${bassinFilter}`}
                 </span>
-                <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 font-medium border border-emerald-200 dark:border-emerald-800" title="100% hors-ligne, aucune donnée transmise sur le cloud">
+                <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 font-medium border border-emerald-200 dark:border-emerald-800" title="Données enregistrées localement, sans synchronisation automatique">
                   <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                   100% RGPD
                 </span>

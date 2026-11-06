@@ -70,7 +70,7 @@ export const App: React.FC = () => {
           parsed.establishments = parsed.establishments.map((e: any, idx: number) => ({
             ...e,
             bassin: e.bassin || (idx >= 11 ? 'Cambrésis' : 'Douaisis'),
-            effectifClasse: e.effectifClasse || e.cfg?.inscrits || 14,
+            effectifClasse: e.effectifClasse ?? e.cfg?.inscrits ?? 14,
             color: e.color || COLLEGE_PALETTE[idx % COLLEGE_PALETTE.length],
           }));
           return parsed;
@@ -156,6 +156,7 @@ export const App: React.FC = () => {
           <TableView
             session={activeSession}
             setSession={setSession}
+            currentBassin={bassinFilter}
             onEditEstablishment={(est) => setEditingEstablishment(est)}
           />
         )}
@@ -200,6 +201,7 @@ export const App: React.FC = () => {
         onClose={() => setIsTeacherFormOpen(false)}
         onSubmit={handleNewTeacherSubmission}
         existingEstablishmentNames={session.establishments.map((e) => e.name)}
+        defaultBassin={bassinFilter === 'all' ? (session.regions || DEFAULT_REGIONS)[0]?.name || 'Douaisis' : bassinFilter}
       />
 
       {/* Modal Import / Export Excel */}
@@ -221,11 +223,11 @@ export const App: React.FC = () => {
           <div className="flex items-center gap-4 text-[11px] flex-wrap justify-center sm:justify-end">
             <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300 font-medium bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-              100% Hors-Ligne & RGPD Conforme
+              Stockage local dans ce navigateur
             </span>
             <span className="inline-flex items-center gap-1 text-blue-700 dark:text-blue-300 font-medium bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
               <Accessibility className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" aria-hidden="true" />
-              Conforme W3C • RGAA 4.1.2 • WCAG 2.1 AA
+              Accessibilité à vérifier
             </span>
             <button
               onClick={() => setCurrentTab('table')}

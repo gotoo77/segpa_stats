@@ -14,6 +14,7 @@ import {
 import { SessionData } from '../types';
 import { exportSessionToExcel, downloadEmptyTemplate, parseExcelOrCsvFile } from '../utils/excel';
 import { initialSessionData } from '../data/mockData';
+import { computeDnb, computeCfg } from '../utils/calculations';
 
 interface ImportExportModalProps {
   isOpen: boolean;
@@ -84,7 +85,16 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
     reader.onload = (event) => {
       try {
         const parsed = JSON.parse(event.target?.result as string);
-        if (parsed.establishments && Array.isArray(parsed.establishments)) {
+        if (parsed && typeof parsed.year === 'string' && Array.isArray(parsed.establishments) &&
+            parsed.establishments.every((est: any) => est && typeof est.id === 'string' && typeof est.name === 'string' &&
+              est.dnb && est.cfg && typeof est.effectifClasse === 'number' &&
+              typeof est.dnb.inscrits === 'number' && typeof est.dnb.admis === 'number' &&
+              typeof est.dnb.refuses === 'number' && est.dnb.mentions &&
+              typeof est.cfg.inscrits === 'number' && typeof est.cfg.admis === 'number' &&
+              typeof est.cfg.refuses === 'number') &&
+            parsed.establishments.every((est: any) =>
+              computeDnb(est.dnb, est.effectifClasse).errors.length === 0 &&
+              computeCfg(est.cfg, est.effectifClasse).errors.length === 0)) {
           setSession(parsed);
           setImportStatus('Sauvegarde JSON restaurée avec succès !');
           setTimeout(() => {
@@ -290,12 +300,12 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
             <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
             <div>
               <strong className="block text-emerald-950 dark:text-emerald-100 font-bold mb-0.5">
-                Garantie de Confidentialité & RGPD
+                Fonctionnement local et confidentialité
               </strong>
               <p className="text-[11px] leading-relaxed text-emerald-800 dark:text-emerald-300">
-                Cette application est 100 % autonome et fonctionne en circuit fermé dans votre navigateur.
-                Aucune donnée n'est envoyée sur Internet ou stockée sur un serveur externe. Les données restent
-                uniquement sur votre ordinateur dans le stockage local du navigateur.
+                Les données de travail sont enregistrées dans le stockage local du navigateur, sans synchronisation
+                automatique avec un serveur. Protégez les fichiers exportés et sauvegardez-les régulièrement.
+                La conformité RGPD dépend également du contexte d'utilisation.
               </p>
             </div>
           </div>

@@ -10,7 +10,7 @@ export function computeDnb(data: DnbData, effectifClasse: number = 0): ComputedD
   const tb = Number(data.mentions?.tb) || 0;
 
   // Présents = soit spécifié explicitement, soit la somme des admis + refusés
-  const presents = data.presents !== undefined && data.presents > 0 
+  const presents = data.presents !== undefined 
     ? Number(data.presents) 
     : (admis + refuses > 0 ? admis + refuses : inscrits);
 
@@ -18,7 +18,7 @@ export function computeDnb(data: DnbData, effectifClasse: number = 0): ComputedD
   const sansMention = Math.max(0, admis - totalMentions);
   const absents = Math.max(0, inscrits - presents);
 
-  const tauxPresentation = effectif > 0 ? (inscrits / effectif) * 100 : (inscrits > 0 ? 100 : 0);
+  const tauxPresentation = effectif > 0 ? (inscrits / effectif) * 100 : 0;
   const tauxInscrits = inscrits > 0 ? (admis / inscrits) * 100 : 0;
   const tauxPresents = presents > 0 ? (admis / presents) * 100 : 0;
   const tauxClasse = effectif > 0 ? (admis / effectif) * 100 : 0;
@@ -28,11 +28,17 @@ export function computeDnb(data: DnbData, effectifClasse: number = 0): ComputedD
   if (effectif > 0 && inscrits > effectif) {
     errors.push(`Inscrits (${inscrits}) > Effectif classe (${effectif})`);
   }
+  for (const [label, value] of Object.entries({ effectif, inscrits, presents, admis, refuses, ab, b, tb })) {
+    if (!Number.isInteger(value) || value < 0) errors.push(`${label} doit être un entier positif ou nul`);
+  }
+  if (effectif === 0 && inscrits > 0) errors.push('Effectif de classe manquant');
+  if (admis + refuses > presents) errors.push(`Admis + Refusés (${admis + refuses}) > Présents (${presents})`);
+  if (admis > inscrits) errors.push(`Admis (${admis}) > Inscrits (${inscrits})`);
   if (totalMentions > admis) {
     errors.push(`Total mentions (${totalMentions}) > Admis (${admis})`);
   }
-  if (presents > inscrits && inscrits > 0) {
-    errors.push(`Admis + Refusés (${presents}) dépasse les Inscrits (${inscrits})`);
+  if (presents > inscrits) {
+    errors.push(`Présents (${presents}) > Inscrits (${inscrits})`);
   }
 
   return {
@@ -55,7 +61,7 @@ export function computeCfg(data: CfgData, effectifClasse: number = 0): ComputedC
   const admis = Number(data.admis) || 0;
   const refuses = Number(data.refuses) || 0;
 
-  const presents = data.presents !== undefined && data.presents > 0
+  const presents = data.presents !== undefined
     ? Number(data.presents)
     : (admis + refuses > 0 ? admis + refuses : inscrits);
 
@@ -65,11 +71,17 @@ export function computeCfg(data: CfgData, effectifClasse: number = 0): ComputedC
   const tauxClasse = effectif > 0 ? (admis / effectif) * 100 : 0;
 
   const errors: string[] = [];
+  for (const [label, value] of Object.entries({ effectif, inscrits, presents, admis, refuses })) {
+    if (!Number.isInteger(value) || value < 0) errors.push(`${label} doit être un entier positif ou nul`);
+  }
+  if (effectif === 0 && inscrits > 0) errors.push('Effectif de classe manquant');
   if (effectif > 0 && inscrits > effectif) {
     errors.push(`Inscrits CFG (${inscrits}) > Effectif classe (${effectif})`);
   }
-  if (presents > inscrits && inscrits > 0) {
-    errors.push(`Admis + Refusés (${presents}) dépasse les Inscrits (${inscrits})`);
+  if (admis + refuses > presents) errors.push(`Admis + Refusés (${admis + refuses}) > Présents (${presents})`);
+  if (admis > inscrits) errors.push(`Admis (${admis}) > Inscrits (${inscrits})`);
+  if (presents > inscrits) {
+    errors.push(`Présents (${presents}) > Inscrits (${inscrits})`);
   }
 
   return {
@@ -100,7 +112,7 @@ export function calculateBassinStats(establishments: Establishment[]): BassinSta
   let cfgRefuses = 0;
 
   establishments.forEach((e) => {
-    const eff = Number(e.effectifClasse) || Number(e.cfg.inscrits) || 0;
+    const eff = Number(e.effectifClasse) || 0;
     totalEffectif += eff;
 
     const dnbComp = computeDnb(e.dnb, eff);

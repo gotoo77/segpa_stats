@@ -7,6 +7,7 @@ interface TeacherSubmissionModalProps {
   onClose: () => void;
   onSubmit: (sub: ColleagueSubmission) => void;
   existingEstablishmentNames: string[];
+  defaultBassin: string;
 }
 
 export const TeacherSubmissionModal: React.FC<TeacherSubmissionModalProps> = ({
@@ -14,6 +15,7 @@ export const TeacherSubmissionModal: React.FC<TeacherSubmissionModalProps> = ({
   onClose,
   onSubmit,
   existingEstablishmentNames,
+  defaultBassin,
 }) => {
   const [colleagueName, setColleagueName] = useState('Mme / M. Enseignant Référent');
   const [establishmentName, setEstablishmentName] = useState(existingEstablishmentNames[0] || 'Collège Exemple');
@@ -48,6 +50,7 @@ export const TeacherSubmissionModal: React.FC<TeacherSubmissionModalProps> = ({
       id: `sub-${Date.now()}`,
       establishmentName,
       city,
+      bassin: defaultBassin,
       submittedBy: colleagueName,
       submittedAt: new Date().toISOString(),
       status: 'pending',
@@ -84,7 +87,7 @@ export const TeacherSubmissionModal: React.FC<TeacherSubmissionModalProps> = ({
                 <h3 className="font-bold text-lg">Espace Déclaration Collègue</h3>
                 <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-semibold">Transmission Direction</span>
               </div>
-              <p className="text-xs text-emerald-100">Transmettez vos résultats de session pour validation par la direction</p>
+              <p className="text-xs text-emerald-100">Enregistrez localement vos résultats pour validation</p>
             </div>
           </div>
           <button onClick={onClose} aria-label="Fermer" className="p-1.5 text-white/80 hover:text-white rounded-xl transition">
@@ -294,7 +297,7 @@ export const TeacherSubmissionModal: React.FC<TeacherSubmissionModalProps> = ({
               className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition"
             >
               <Send className="w-4 h-4" aria-hidden="true" />
-              Transmettre à la direction
+              Enregistrer pour validation
             </button>
           </div>
         </form>

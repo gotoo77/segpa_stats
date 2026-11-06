@@ -33,6 +33,11 @@ export const EstablishmentEditModal: React.FC<EstablishmentEditModalProps> = ({
 
   const handleSave = () => {
     if (data) {
+      const errors = [...computeDnb(data.dnb, data.effectifClasse).errors, ...computeCfg(data.cfg, data.effectifClasse).errors];
+      if (errors.length > 0) {
+        alert(`Impossible d'enregistrer :\n${errors.join('\n')}`);
+        return;
+      }
       onSave(data);
       onClose();
     }

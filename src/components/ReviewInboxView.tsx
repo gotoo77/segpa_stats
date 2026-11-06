@@ -51,6 +51,15 @@ export const ReviewInboxView: React.FC<ReviewInboxViewProps> = ({
   const handleApprove = (submissionToApprove: ColleagueSubmission) => {
     const targetSub = editingSub && editingSub.id === submissionToApprove.id ? editingSub : submissionToApprove;
 
+    const errors = [
+      ...computeDnb(targetSub.dnb, targetSub.effectifClasse).errors,
+      ...computeCfg(targetSub.cfg, targetSub.effectifClasse).errors,
+    ];
+    if (errors.length > 0) {
+      alert(`Déclaration incohérente :\n${errors.join('\n')}`);
+      return;
+    }
+
     const existingIndex = session.establishments.findIndex(
       (e) => e.name.toLowerCase().trim() === targetSub.establishmentName.toLowerCase().trim()
     );
@@ -71,6 +80,7 @@ export const ReviewInboxView: React.FC<ReviewInboxViewProps> = ({
         id: `segpa-${Date.now()}`,
         name: targetSub.establishmentName,
         city: targetSub.city || '',
+        bassin: targetSub.bassin || session.regions?.[0]?.name || 'Douaisis',
         color,
         effectifClasse: targetSub.effectifClasse,
         dnb: targetSub.dnb,
@@ -80,6 +90,7 @@ export const ReviewInboxView: React.FC<ReviewInboxViewProps> = ({
     }
 
     const isModified = JSON.stringify(targetSub.dnb) !== JSON.stringify(submissionToApprove.dnb) ||
+                       JSON.stringify(targetSub.cfg) !== JSON.stringify(submissionToApprove.cfg) ||
                        targetSub.effectifClasse !== submissionToApprove.effectifClasse;
 
     const updatedSubmissions = submissions.map((s) => {
