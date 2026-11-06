@@ -32,6 +32,9 @@ export interface Establishment {
   effectifClasse: number; // Effectif total de la classe de 3e SEGPA
   dnb: DnbData;
   cfg: CfgData;
+  /** false = résultats non renseignés. Absent = renseignés, pour compatibilité avec les données existantes. */
+  dnbComplete?: boolean;
+  cfgComplete?: boolean;
 }
 
 export type SubmissionStatus = 'pending' | 'approved' | 'modified';
@@ -88,6 +91,8 @@ export interface ComputedCfg {
 
 export interface BassinStats {
   totalEtablissements: number;
+  dnbRenseignes: number;
+  cfgRenseignes: number;
   totalEffectifClasse: number;
   tauxMoyenPresentationDnb: number;
   dnb: {

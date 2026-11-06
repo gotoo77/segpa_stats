@@ -98,6 +98,10 @@ export function calculateBassinStats(establishments: Establishment[]): BassinSta
   const total = establishments.length;
 
   let totalEffectif = 0;
+  let dnbEffectif = 0;
+  let cfgEffectif = 0;
+  let dnbRenseignes = 0;
+  let cfgRenseignes = 0;
   let dnbInscrits = 0;
   let dnbPresents = 0;
   let dnbAdmis = 0;
@@ -115,21 +119,27 @@ export function calculateBassinStats(establishments: Establishment[]): BassinSta
     const eff = Number(e.effectifClasse) || 0;
     totalEffectif += eff;
 
-    const dnbComp = computeDnb(e.dnb, eff);
-    const cfgComp = computeCfg(e.cfg, eff);
-
-    dnbInscrits += Number(e.dnb.inscrits) || 0;
-    dnbPresents += dnbComp.presents;
-    dnbAdmis += Number(e.dnb.admis) || 0;
-    dnbRefuses += Number(e.dnb.refuses) || 0;
-    dnbAB += Number(e.dnb.mentions?.ab) || 0;
-    dnbB += Number(e.dnb.mentions?.b) || 0;
-    dnbTB += Number(e.dnb.mentions?.tb) || 0;
-
-    cfgInscrits += Number(e.cfg.inscrits) || 0;
-    cfgPresents += cfgComp.presents;
-    cfgAdmis += Number(e.cfg.admis) || 0;
-    cfgRefuses += Number(e.cfg.refuses) || 0;
+    if (e.dnbComplete !== false) {
+      dnbRenseignes++;
+      dnbEffectif += eff;
+      const result = computeDnb(e.dnb, eff);
+      dnbInscrits += Number(e.dnb.inscrits) || 0;
+      dnbPresents += result.presents;
+      dnbAdmis += Number(e.dnb.admis) || 0;
+      dnbRefuses += Number(e.dnb.refuses) || 0;
+      dnbAB += Number(e.dnb.mentions?.ab) || 0;
+      dnbB += Number(e.dnb.mentions?.b) || 0;
+      dnbTB += Number(e.dnb.mentions?.tb) || 0;
+    }
+    if (e.cfgComplete !== false) {
+      cfgRenseignes++;
+      cfgEffectif += eff;
+      const result = computeCfg(e.cfg, eff);
+      cfgInscrits += Number(e.cfg.inscrits) || 0;
+      cfgPresents += result.presents;
+      cfgAdmis += Number(e.cfg.admis) || 0;
+      cfgRefuses += Number(e.cfg.refuses) || 0;
+    }
   });
 
   const dnbTotalMentions = dnbAB + dnbB + dnbTB;
@@ -137,8 +147,10 @@ export function calculateBassinStats(establishments: Establishment[]): BassinSta
 
   return {
     totalEtablissements: total,
+    dnbRenseignes,
+    cfgRenseignes,
     totalEffectifClasse: totalEffectif,
-    tauxMoyenPresentationDnb: totalEffectif > 0 ? Number(((dnbInscrits / totalEffectif) * 100).toFixed(1)) : 0,
+    tauxMoyenPresentationDnb: dnbEffectif > 0 ? Number(((dnbInscrits / dnbEffectif) * 100).toFixed(1)) : 0,
     dnb: {
       inscrits: dnbInscrits,
       presents: dnbPresents,
@@ -153,7 +165,7 @@ export function calculateBassinStats(establishments: Establishment[]): BassinSta
       tauxMoyenInscrits: dnbInscrits > 0 ? Number(((dnbAdmis / dnbInscrits) * 100).toFixed(1)) : 0,
       tauxMoyenPresents: dnbPresents > 0 ? Number(((dnbAdmis / dnbPresents) * 100).toFixed(1)) : 0,
       tauxMoyenMentions: dnbAdmis > 0 ? Number(((dnbTotalMentions / dnbAdmis) * 100).toFixed(1)) : 0,
-      tauxMoyenClasse: totalEffectif > 0 ? Number(((dnbAdmis / totalEffectif) * 100).toFixed(1)) : 0,
+      tauxMoyenClasse: dnbEffectif > 0 ? Number(((dnbAdmis / dnbEffectif) * 100).toFixed(1)) : 0,
     },
     cfg: {
       inscrits: cfgInscrits,
@@ -163,7 +175,7 @@ export function calculateBassinStats(establishments: Establishment[]): BassinSta
       absents: Math.max(0, cfgInscrits - cfgPresents),
       tauxMoyenInscrits: cfgInscrits > 0 ? Number(((cfgAdmis / cfgInscrits) * 100).toFixed(1)) : 0,
       tauxMoyenPresents: cfgPresents > 0 ? Number(((cfgAdmis / cfgPresents) * 100).toFixed(1)) : 0,
-      tauxMoyenClasse: totalEffectif > 0 ? Number(((cfgAdmis / totalEffectif) * 100).toFixed(1)) : 0,
+      tauxMoyenClasse: cfgEffectif > 0 ? Number(((cfgAdmis / cfgEffectif) * 100).toFixed(1)) : 0,
     },
   };
 }

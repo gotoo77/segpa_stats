@@ -73,6 +73,10 @@ export const ReviewInboxView: React.FC<ReviewInboxViewProps> = ({
         color: targetSub.color || updatedEstablishments[existingIndex].color,
         dnb: targetSub.dnb,
         cfg: targetSub.cfg,
+        dnbComplete: true,
+        cfgComplete: true,
+        dnbComplete: true,
+        cfgComplete: true,
       };
     } else {
       const color = targetSub.color || COLLEGE_PALETTE[session.establishments.length % COLLEGE_PALETTE.length];

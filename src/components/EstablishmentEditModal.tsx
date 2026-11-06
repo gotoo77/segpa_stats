@@ -33,7 +33,10 @@ export const EstablishmentEditModal: React.FC<EstablishmentEditModalProps> = ({
 
   const handleSave = () => {
     if (data) {
-      const errors = [...computeDnb(data.dnb, data.effectifClasse).errors, ...computeCfg(data.cfg, data.effectifClasse).errors];
+      const errors = [
+        ...(data.dnbComplete === false ? [] : computeDnb(data.dnb, data.effectifClasse).errors),
+        ...(data.cfgComplete === false ? [] : computeCfg(data.cfg, data.effectifClasse).errors),
+      ];
       if (errors.length > 0) {
         alert(`Impossible d'enregistrer :\n${errors.join('\n')}`);
         return;
@@ -172,8 +175,9 @@ export const EstablishmentEditModal: React.FC<EstablishmentEditModalProps> = ({
                 <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 DNB Série Professionnelle
               </h4>
+              <label className="flex items-center gap-2 text-xs text-blue-900 dark:text-blue-100"><input type="checkbox" checked={data.dnbComplete !== false} onChange={e => setData({ ...data, dnbComplete: e.target.checked })} /> Résultats renseignés</label>
               <span className="text-xs font-semibold text-blue-800 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded-full">
-                {dnbComp.tauxPresents}% de réussite ({dnbComp.tauxPresentation}% classe inscrite)
+                {data.dnbComplete === false ? 'Non renseigné' : `${dnbComp.tauxPresents}% de réussite (${dnbComp.tauxPresentation}% classe inscrite)`}
               </span>
             </div>
 
@@ -295,8 +299,9 @@ export const EstablishmentEditModal: React.FC<EstablishmentEditModalProps> = ({
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 Certificat de Formation Générale (CFG)
               </h4>
+              <label className="flex items-center gap-2 text-xs text-emerald-900 dark:text-emerald-100"><input type="checkbox" checked={data.cfgComplete !== false} onChange={e => setData({ ...data, cfgComplete: e.target.checked })} /> Résultats renseignés</label>
               <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-full">
-                {cfgComp.tauxPresents}% de réussite
+                {data.cfgComplete === false ? 'Non renseigné' : `${cfgComp.tauxPresents}% de réussite`}
               </span>
             </div>
 
