@@ -173,7 +173,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
               <span className="text-xs bg-white/20 px-2.5 py-0.5 rounded-full font-medium">Diplôme National du Brevet série Pro</span>
             </div>
             <div className="text-xs text-blue-100 font-medium">
-              Présentation bassin : <span className="font-bold text-white text-sm">{bassinStats.tauxMoyenPresentationDnb}%</span> • Réussite : <span className="font-bold text-white text-sm">{bassinStats.dnb.tauxMoyenPresents}%</span>
+              Présentation bassin : <span className="font-bold text-white text-sm">{bassinStats.dnbRenseignes ? bassinStats.tauxMoyenPresentationDnb + '%' : 'N.R.'}</span> • Réussite : <span className="font-bold text-white text-sm">{bassinStats.dnbRenseignes ? bassinStats.dnb.tauxMoyenPresents + '%' : 'N.R.'}</span>
             </div>
           </div>
 
@@ -403,7 +403,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
                   </td>
                   <td className="py-3 px-3 text-center text-slate-200">
                     {bassinStats.dnb.inscrits}
-                    <span className="block text-[9px] text-slate-400 font-normal">({bassinStats.tauxMoyenPresentationDnb}% classe)</span>
+                    <span className="block text-[9px] text-slate-400 font-normal">({bassinStats.dnbRenseignes ? bassinStats.tauxMoyenPresentationDnb + '%' : 'N.R.'} classe)</span>
                   </td>
                   <td className="py-3 px-3 text-center text-emerald-300 font-extrabold">{bassinStats.dnb.admis}</td>
                   <td className="py-3 px-3 text-center text-slate-300">{bassinStats.dnb.refuses}</td>
@@ -417,7 +417,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
                     {bassinStats.dnb.tauxMoyenInscrits} %
                   </td>
                   <td className="py-3 px-3 text-center bg-indigo-900 text-indigo-100 text-sm font-extrabold">
-                    {bassinStats.dnb.tauxMoyenPresents} %
+                    {bassinStats.dnbRenseignes ? bassinStats.dnb.tauxMoyenPresents + ' %' : 'N.R.'}
                   </td>
                   <td className="no-print"></td>
                 </tr>
@@ -438,7 +438,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
               <span className="text-xs bg-white/20 px-2.5 py-0.5 rounded-full font-medium">Certificat de Formation Générale (Tous les élèves inscrits)</span>
             </div>
             <div className="text-xs text-emerald-100 font-medium">
-              Moyenne bassin : <span className="font-bold text-white text-sm">{bassinStats.cfg.tauxMoyenPresents}%</span> de réussite
+              Moyenne bassin : <span className="font-bold text-white text-sm">{bassinStats.cfgRenseignes ? bassinStats.cfg.tauxMoyenPresents + '%' : 'N.R.'}</span> de réussite
             </div>
           </div>
 
@@ -614,7 +614,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
                     {bassinStats.cfg.tauxMoyenInscrits} %
                   </td>
                   <td className="py-3 px-3 text-center bg-teal-900 text-teal-100 text-sm font-extrabold">
-                    {bassinStats.cfg.tauxMoyenPresents} %
+                    {bassinStats.cfgRenseignes ? bassinStats.cfg.tauxMoyenPresents + ' %' : 'N.R.'}
                   </td>
                   <td className="no-print"></td>
                 </tr>

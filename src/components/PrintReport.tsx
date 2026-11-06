@@ -267,7 +267,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
                         {est.effectifClasse}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-semibold ${isPaper ? 'text-slate-900' : 'text-slate-200'}`}>
-                        {est.dnb.inscrits}
+                        {est.dnbComplete === false ? 'N.R.' : est.dnb.inscrits}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-semibold ${isPaper ? 'text-slate-700' : 'text-slate-300'}`}>
                         {est.dnbComplete === false ? 'N.R.' : comp.tauxPresentation + '%'}
@@ -275,23 +275,23 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
                       <td className={`p-2 text-center font-black border-r border-inherit ${
                         isPaper ? 'text-emerald-800' : 'text-emerald-400'
                       }`}>
-                        {est.dnb.admis}
+                        {est.dnbComplete === false ? 'N.R.' : est.dnb.admis}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-semibold ${
                         est.dnb.refuses > 0 
                           ? (isPaper ? 'text-rose-800 font-bold' : 'text-rose-400 font-bold') 
                           : (isPaper ? 'text-slate-500' : 'text-slate-400')
                       }`}>
-                        {est.dnb.refuses}
+                        {est.dnbComplete === false ? 'N.R.' : est.dnb.refuses}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-semibold ${isPaper ? 'text-slate-900' : 'text-slate-200'}`}>
-                        {est.dnb.mentions?.ab || 0}
+                        {est.dnbComplete === false ? 'N.R.' : (est.dnb.mentions?.ab || 0)}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-semibold ${isPaper ? 'text-slate-900' : 'text-slate-200'}`}>
-                        {est.dnb.mentions?.b || 0}
+                        {est.dnbComplete === false ? 'N.R.' : (est.dnb.mentions?.b || 0)}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-semibold ${isPaper ? 'text-slate-900' : 'text-slate-200'}`}>
-                        {est.dnb.mentions?.tb || 0}
+                        {est.dnbComplete === false ? 'N.R.' : (est.dnb.mentions?.tb || 0)}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-bold ${isPaper ? 'text-blue-900' : 'text-blue-300'}`}>
                         {est.dnbComplete === false ? 'N.R.' : comp.tauxInscrits + '%'}
@@ -398,19 +398,19 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
                         {est.effectifClasse}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-semibold ${isPaper ? 'text-slate-900' : 'text-slate-200'}`}>
-                        {est.cfg.inscrits}
+                        {est.cfgComplete === false ? 'N.R.' : est.cfg.inscrits}
                       </td>
                       <td className={`p-2 text-center font-black border-r border-inherit ${
                         isPaper ? 'text-emerald-800' : 'text-emerald-400'
                       }`}>
-                        {est.cfg.admis}
+                        {est.cfgComplete === false ? 'N.R.' : est.cfg.admis}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-semibold ${
                         est.cfg.refuses > 0 
                           ? (isPaper ? 'text-rose-800 font-bold' : 'text-rose-400 font-bold') 
                           : (isPaper ? 'text-slate-500' : 'text-slate-400')
                       }`}>
-                        {est.cfg.refuses}
+                        {est.cfgComplete === false ? 'N.R.' : est.cfg.refuses}
                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-bold ${isPaper ? 'text-teal-900' : 'text-teal-300'}`}>
                         {est.cfgComplete === false ? 'N.R.' : comp.tauxInscrits + '%'}

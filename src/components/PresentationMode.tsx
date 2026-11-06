@@ -337,7 +337,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
                   <div className="flex justify-between text-slate-300">
                     <span>Collèges à 100% :</span>
                     <strong className="text-teal-300">
-                      {establishments.filter((e) => computeCfg(e.cfg, e.effectifClasse).tauxPresents === 100).length} sur {establishments.length}
+                      {establishments.filter((e) => e.cfgComplete !== false && computeCfg(e.cfg, e.effectifClasse).tauxPresents === 100).length} sur {establishments.length}
                     </strong>
                   </div>
                 </div>
@@ -376,7 +376,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
                         <span className={`text-2xl font-black ${est.dnbComplete === false ? 'text-slate-400' : comp.tauxPresents >= 85 ? 'text-emerald-400' : comp.tauxPresents >= 70 ? 'text-blue-400' : 'text-amber-400'}`}>
                           {est.dnbComplete === false ? 'N.R.' : comp.tauxPresents + '%'}
                         </span>
-                        <span className="text-[10px] text-slate-400">({est.dnb.admis}/{est.dnb.inscrits})</span>
+                        <span className="text-[10px] text-slate-400">{est.dnbComplete === false ? 'Données en attente' : `(${est.dnb.admis}/${est.dnb.inscrits})`}</span>
                       </div>
                       <div className="text-[10px] text-slate-400 flex justify-between border-t border-slate-900 pt-1 mt-1">
                         <span>Présentés :</span>
@@ -459,7 +459,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
                         <span className={`text-2xl font-black ${est.cfgComplete === false ? 'text-slate-400' : comp.tauxPresents === 100 ? 'text-emerald-400' : 'text-teal-300'}`}>
                           {est.cfgComplete === false ? 'N.R.' : comp.tauxPresents + '%'}
                         </span>
-                        <span className="text-[10px] text-slate-400">{est.cfg.admis}/{est.cfg.inscrits}</span>
+                        <span className="text-[10px] text-slate-400">{est.cfgComplete === false ? 'Données en attente' : `${est.cfg.admis}/${est.cfg.inscrits}`}</span>
                       </div>
                       <div className="text-[10px] text-slate-500">
                         {est.cfgComplete === false ? 'Résultats non renseignés' : comp.tauxPresents === 100 ? '⭐ 100% de réussite' : `${est.cfg.refuses} non admis`}

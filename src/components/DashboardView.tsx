@@ -188,19 +188,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
     datasets: [
       {
         label: 'Mention Assez Bien (AB)',
-        data: establishments.map((e) => e.dnb.mentions?.ab || 0),
+        data: establishments.map((e) => e.dnbComplete === false ? 0 : (e.dnb.mentions?.ab || 0)),
         backgroundColor: '#10b981',
         borderRadius: 2,
       },
       {
         label: 'Mention Bien (B)',
-        data: establishments.map((e) => e.dnb.mentions?.b || 0),
+        data: establishments.map((e) => e.dnbComplete === false ? 0 : (e.dnb.mentions?.b || 0)),
         backgroundColor: '#3b82f6',
         borderRadius: 2,
       },
       {
         label: 'Mention Très Bien (TB)',
-        data: establishments.map((e) => e.dnb.mentions?.tb || 0),
+        data: establishments.map((e) => e.dnbComplete === false ? 0 : (e.dnb.mentions?.tb || 0)),
         backgroundColor: '#f59e0b',
         borderRadius: 2,
       },
@@ -449,7 +449,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-slate-900 dark:text-white">Taux d'inscription au DNB Pro (% effectif de la classe)</h3>
                 <span className="text-[11px] bg-indigo-100 dark:bg-indigo-950/80 text-indigo-800 dark:text-indigo-300 font-semibold px-2 py-0.5 rounded-full">
-                  Moyenne: {stats.tauxMoyenPresentationDnb}%
+                  Moyenne: {stats.dnbRenseignes ? stats.tauxMoyenPresentationDnb + '%' : 'N.R.'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -478,7 +478,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-slate-900 dark:text-white">Taux de réussite DNB Pro (sur candidats)</h3>
                 <span className="text-[11px] bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 font-semibold px-2 py-0.5 rounded-full">
-                  Moyenne: {stats.dnb.tauxMoyenPresents}%
+                  Moyenne: {stats.dnbRenseignes ? stats.dnb.tauxMoyenPresents + '%' : 'N.R.'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Comparatif par collège avec ligne repère moyenne de bassin</p>
@@ -505,7 +505,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-slate-900 dark:text-white">Taux de réussite CFG (Certificat de Formation Générale)</h3>
                 <span className="text-[11px] bg-teal-100 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300 font-semibold px-2 py-0.5 rounded-full">
-                  Moyenne: {stats.cfg.tauxMoyenPresents}%
+                  Moyenne: {stats.cfgRenseignes ? stats.cfg.tauxMoyenPresents + '%' : 'N.R.'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Examen passé par 100% des élèves de 3e SEGPA</p>

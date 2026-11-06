@@ -32,18 +32,18 @@ export function createSessionWorkbook(session: SessionData): XLSX.WorkBook {
       'Secteur / Ville': e.city || '',
       'Effectif Classe 3e': e.effectifClasse,
       'Statut': e.dnbComplete === false ? 'N.R.' : 'Renseigné',
-      'Candidats Inscrits': e.dnb.inscrits,
-      'Candidats Admis': e.dnb.admis,
-      'Candidats Refusés': e.dnb.refuses,
-      'Mention Assez Bien': e.dnb.mentions.ab,
-      'Mention Bien': e.dnb.mentions.b,
-      'Mention Très Bien': e.dnb.mentions.tb,
-      'Total Mentions': c.totalMentions,
-      'Sans Mention': c.sansMention,
-      '% Présentation DNB (/ Classe)': `${c.tauxPresentation}%`,
+      'Candidats Inscrits': e.dnbComplete === false ? 'N.R.' : e.dnb.inscrits,
+      'Candidats Admis': e.dnbComplete === false ? 'N.R.' : e.dnb.admis,
+      'Candidats Refusés': e.dnbComplete === false ? 'N.R.' : e.dnb.refuses,
+      'Mention Assez Bien': e.dnbComplete === false ? 'N.R.' : e.dnb.mentions.ab,
+      'Mention Bien': e.dnbComplete === false ? 'N.R.' : e.dnb.mentions.b,
+      'Mention Très Bien': e.dnbComplete === false ? 'N.R.' : e.dnb.mentions.tb,
+      'Total Mentions': e.dnbComplete === false ? 'N.R.' : c.totalMentions,
+      'Sans Mention': e.dnbComplete === false ? 'N.R.' : c.sansMention,
+      '% Présentation DNB (/ Classe)': e.dnbComplete === false ? 'N.R.' : `${c.tauxPresentation}%`,
       '% Réussite / Inscrits': e.dnbComplete === false ? 'N.R.' : `${c.tauxInscrits}%`,
       '% Réussite / Présents': e.dnbComplete === false ? 'N.R.' : `${c.tauxPresents}%`,
-      '% Mentions / Admis': `${c.tauxMentions}%`,
+      '% Mentions / Admis': e.dnbComplete === false ? 'N.R.' : `${c.tauxMentions}%`,
     };
   });
   const wsDnb = XLSX.utils.json_to_sheet(dnbRows);
@@ -57,9 +57,9 @@ export function createSessionWorkbook(session: SessionData): XLSX.WorkBook {
       'Secteur / Ville': e.city || '',
       'Effectif Classe 3e': e.effectifClasse,
       'Statut': e.cfgComplete === false ? 'N.R.' : 'Renseigné',
-      'Candidats Inscrits': e.cfg.inscrits,
-      'Candidats Admis': e.cfg.admis,
-      'Candidats Refusés': e.cfg.refuses,
+      'Candidats Inscrits': e.cfgComplete === false ? 'N.R.' : e.cfg.inscrits,
+      'Candidats Admis': e.cfgComplete === false ? 'N.R.' : e.cfg.admis,
+      'Candidats Refusés': e.cfgComplete === false ? 'N.R.' : e.cfg.refuses,
       '% Réussite / Inscrits': e.cfgComplete === false ? 'N.R.' : `${c.tauxInscrits}%`,
       '% Réussite / Présents': e.cfgComplete === false ? 'N.R.' : `${c.tauxPresents}%`,
     };
@@ -74,10 +74,10 @@ export function createSessionWorkbook(session: SessionData): XLSX.WorkBook {
     return {
       'Établissement': e.name,
       'Effectif Classe 3e': e.effectifClasse,
-      'DNB Inscrits': e.dnb.inscrits,
+      'DNB Inscrits': e.dnbComplete === false ? 'N.R.' : e.dnb.inscrits,
       'DNB % Présentation': e.dnbComplete === false ? 'N.R.' : `${dnbC.tauxPresentation}%`,
       'DNB % Réussite': e.dnbComplete === false ? 'N.R.' : `${dnbC.tauxPresents}%`,
-      'CFG Inscrits': e.cfg.inscrits,
+      'CFG Inscrits': e.cfgComplete === false ? 'N.R.' : e.cfg.inscrits,
       'CFG % Réussite': e.cfgComplete === false ? 'N.R.' : `${cfgC.tauxPresents}%`,
     };
   });
@@ -164,9 +164,20 @@ export function parseWorkbook(workbook: XLSX.WorkBook, defaultBassin = 'Douaisis
   const legacy = sheetName === 'DNB Professionnel';
   if (legacy && !workbook.Sheets.CFG) throw new Error('Ancien export incomplet : feuille CFG manquante');
   const cfgRows = new Map<string, Record<string, unknown>>();
-  if (legacy) for (const row of XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets.CFG, { defval: null })) {
-    const key = String(pick(row, ['Établissement', 'Etablissement']) || '').trim().toLowerCase();
-    if (key) cfgRows.set(key, row);
+  if (legacy) {
+    for (const row of XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets.CFG, { defval: null })) {
+      const key = String(pick(row, ['Établissement', 'Etablissement']) || '').trim().toLocaleLowerCase('fr-FR');
+      if (!key) throw new Error('Ancien Excel : un collège sans nom dans la feuille CFG');
+      if (cfgRows.has(key)) throw new Error('Ancien Excel ambigu : collège homonyme dans la feuille CFG : ' + key);
+      cfgRows.set(key, row);
+    }
+    const dnbNames = new Set<string>();
+    for (const row of rows) {
+      const key = String(pick(row, ['Établissement', 'Etablissement']) || '').trim().toLocaleLowerCase('fr-FR');
+      if (!key) continue;
+      if (dnbNames.has(key)) throw new Error('Ancien Excel ambigu : collège homonyme dans la feuille DNB : ' + key);
+      dnbNames.add(key);
+    }
   }
   const establishments = rows.map((row, index) => {
     const line = 'Ligne ' + (index + 2);
@@ -174,7 +185,7 @@ export function parseWorkbook(workbook: XLSX.WorkBook, defaultBassin = 'Douaisis
       throw new Error(line + ' : colonnes de résultats non reconnues');
     const name = String(pick(row, ['Établissement', 'Etablissement', 'etablissement', 'Collège', 'College', 'Nom']) || '').trim();
     if (!name) throw new Error(line + ' : nom établissement manquant');
-    const cfgRow = legacy ? cfgRows.get(name.toLowerCase()) : row;
+    const cfgRow = legacy ? cfgRows.get(name.toLocaleLowerCase('fr-FR')) : row;
     if (!cfgRow) throw new Error(line + ' : résultats CFG introuvables pour ' + name);
     if (pick(row, ['DNB_Inscrits', 'Candidats Inscrits', 'DNB Inscrits']) === undefined ||
         pick(cfgRow, ['CFG_Inscrits', 'CFG Candidats Inscrits', 'Candidats Inscrits']) === undefined) {
