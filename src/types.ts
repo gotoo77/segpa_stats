@@ -6,7 +6,8 @@ export interface DnbData {
   mentions: {
     ab: number; // Assez Bien
     b: number;  // Bien
-    tb: number; // Très Bien
+    tb: number; // Très Bien sans félicitations
+    tbf?: number; // Très Bien avec félicitations du jury (absent dans les anciennes sessions)
   };
 }
 
@@ -108,6 +109,7 @@ export interface BassinStats {
     mentionsAB: number;
     mentionsB: number;
     mentionsTB: number;
+    mentionsTBF: number;
     totalMentions: number;
     sansMention: number;
     tauxMoyenInscrits: number;
