@@ -39,6 +39,26 @@ test('DNB : zéro présents explicites est conservé', () => {
   assert.equal(v.absents, 12);
 });
 
+test('DNB : quatrième mention, pourcentages et anciennes données', () => {
+  const data = { inscrits: 12, presents: 10, admis: 10, refuses: 0, mentions: { ab: 5, b: 3, tb: 1, tbf: 1 } };
+  const result = calculations.computeDnb(data, 12);
+  assert.equal(result.totalMentions, 10);
+  assert.equal(result.sansMention, 0);
+  assert.equal(result.tauxMentions, 100);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual([5, 3, 1, 1].map(x => calculations.partMentions(x, result.totalMentions)), [50, 30, 10, 10]);
+  assert.equal(calculations.partMentions(0, 0), 0);
+  const bassin = calculations.calculateBassinStats([item({ dnb: data })]);
+  assert.equal(bassin.dnb.mentionsTBF, 1);
+  assert.equal(bassin.dnb.totalMentions, 10);
+  assert.equal(calculations.computeDnb({ ...data, mentions: { ab: 5, b: 3, tb: 1 } }, 12).totalMentions, 9);
+});
+
+test('DNB : mentions avec félicitations au-delà des admis sont refusées', () => {
+  const result = calculations.computeDnb({ inscrits: 5, admis: 2, refuses: 3, mentions: { ab: 1, b: 0, tb: 0, tbf: 2 } }, 5);
+  assert.ok(result.errors.some(e => e.includes('Total mentions')));
+});
+
 test('CFG : nombre admis impossible déclenche une erreur', () => {
   const v = calculations.computeCfg({ inscrits: 10, presents: 5, admis: 8, refuses: 0 }, 10);
   assert.ok(v.errors.some(e => e.includes('Admis + Refusés')));
@@ -64,6 +84,18 @@ test('aller-retour Excel préserve toutes les colonnes de données utiles', () =
   const buf = XLSX.write(excel.createSessionWorkbook(session), { type: 'buffer', bookType: 'xlsx' });
   const actual = excel.parseWorkbook(XLSX.read(buf, { type: 'buffer' }));
   assert.deepEqual(actual, initial);
+});
+
+test('Excel : félicitations conservées et ancien format compatible', () => {
+  const e = item({ dnb: { inscrits: 12, presents: 11, admis: 9, refuses: 2, mentions: { ab: 2, b: 1, tb: 1, tbf: 2 } } });
+  const wb = excel.createSessionWorkbook({ year: 'Session 2026', establishments: [e] });
+  const [restored] = excel.parseWorkbook(XLSX.read(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }), { type: 'buffer' }));
+  assert.deepEqual(restored, e);
+  const old = item();
+  const oldWb = excel.createSessionWorkbook({ year: 'Session 2026', establishments: [old] });
+  const rows = XLSX.utils.sheet_to_json(oldWb.Sheets.Donnees_StatSEGPA).map(({ DNB_Mention_TBF, ...row }) => row);
+  oldWb.Sheets.Donnees_StatSEGPA = XLSX.utils.json_to_sheet(rows);
+  assert.deepEqual(excel.parseWorkbook(oldWb), [old]);
 });
 
 test('import Excel invalide est rejeté', () => {
@@ -111,6 +143,15 @@ test('JSON : sauvegarde de toutes les sessions sans perte et avec année active'
   const restored = backup.parseCompleteBackup(JSON.parse(serialized));
   assert.equal(restored.activeYear, '2025');
   assert.deepEqual(restored.sessions, data);
+});
+
+test('JSON : quatrième mention optionnelle et validée', () => {
+  const session = { id: '2026', year: 'Session 2026', bassinName: 'Test', establishments: [
+    item(), item({ id: 'tbf', dnb: { inscrits: 12, admis: 9, refuses: 3, mentions: { ab: 1, b: 1, tb: 1, tbf: 2 } } })
+  ], lastUpdated: '2026-11-09' };
+  assert.equal(backup.validateSession(session), true);
+  session.establishments[1].dnb.mentions.tbf = -1;
+  assert.equal(backup.validateSession(session), false);
 });
 
 test('JSON : restauration refuse un jeu de sessions mal formé', () => {

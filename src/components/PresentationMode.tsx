@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { toPng, toBlob } from 'html-to-image';
 import { SessionData, PresentationSettings, DEFAULT_PRESENTATION_SETTINGS } from '../types';
-import { calculateBassinStats, computeDnb, computeCfg } from '../utils/calculations';
+import { calculateBassinStats, computeDnb, computeCfg, partMentions } from '../utils/calculations';
 import { collectDataIssues } from '../utils/dataIntegrity';
 import { exportPresentationToPptx } from '../utils/pptxExport';
 
@@ -403,23 +403,31 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto pt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto pt-4">
               <div className="bg-emerald-950/40 border border-emerald-500/40 p-6 rounded-3xl text-center">
                 <span className="text-xs font-bold uppercase text-emerald-400 tracking-wider">Mention Assez Bien</span>
                 <div className="text-5xl font-black text-emerald-300 my-3">{stats.dnb.mentionsAB}</div>
+                <p className="text-sm font-semibold text-emerald-200">{partMentions(stats.dnb.mentionsAB, stats.dnb.totalMentions)}% des mentions</p>
                 <p className="text-xs text-emerald-200/80">Solide niveau atteint</p>
               </div>
 
               <div className="bg-blue-950/40 border border-blue-500/40 p-6 rounded-3xl text-center">
                 <span className="text-xs font-bold uppercase text-blue-400 tracking-wider">Mention Bien</span>
                 <div className="text-5xl font-black text-blue-300 my-3">{stats.dnb.mentionsB}</div>
+                <p className="text-sm font-semibold text-blue-200">{partMentions(stats.dnb.mentionsB, stats.dnb.totalMentions)}% des mentions</p>
                 <p className="text-xs text-blue-200/80">Excellente maîtrise du socle</p>
               </div>
 
               <div className="bg-amber-950/40 border border-amber-500/40 p-6 rounded-3xl text-center">
                 <span className="text-xs font-bold uppercase text-amber-400 tracking-wider">Mention Très Bien</span>
                 <div className="text-5xl font-black text-amber-300 my-3">{stats.dnb.mentionsTB}</div>
+                <p className="text-sm font-semibold text-amber-200">{partMentions(stats.dnb.mentionsTB, stats.dnb.totalMentions)}% des mentions</p>
                 <p className="text-xs text-amber-200/80">Parcours d'excellence en SEGPA</p>
+              </div>
+              <div className="bg-purple-950/40 border border-purple-500/40 p-6 rounded-3xl text-center">
+                <span className="text-xs font-bold uppercase text-purple-300 tracking-wider">Très Bien avec félicitations du jury</span>
+                <div className="text-5xl font-black text-purple-300 my-3">{stats.dnb.mentionsTBF}</div>
+                <p className="text-sm font-semibold text-purple-200">{partMentions(stats.dnb.mentionsTBF, stats.dnb.totalMentions)}% des mentions</p>
               </div>
             </div>
 
@@ -495,7 +503,7 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ session, onC
               <div className="flex items-start gap-3">
                 <span className="w-6 h-6 rounded-full bg-amber-900/60 text-amber-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">✓</span>
                 <p>
-                  <strong>Mentions :</strong> <strong>{stats.dnb.totalMentions} mentions</strong> décernées ({stats.dnb.mentionsAB} AB, {stats.dnb.mentionsB} B, {stats.dnb.mentionsTB} TB), confirmant la capacité de nos élèves à viser l'excellence.
+                  <strong>Mentions :</strong> <strong>{stats.dnb.totalMentions} mentions</strong> décernées ({stats.dnb.mentionsAB} AB, {stats.dnb.mentionsB} B, {stats.dnb.mentionsTB} TB, {stats.dnb.mentionsTBF} TBF), confirmant la capacité de nos élèves à viser l'excellence.
                 </p>
               </div>
             </div>

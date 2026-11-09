@@ -1,6 +1,6 @@
 import pptxgenjs from 'pptxgenjs';
 import { SessionData, PresentationSettings, DEFAULT_PRESENTATION_SETTINGS } from '../types';
-import { calculateBassinStats, computeDnb, computeCfg } from './calculations';
+import { calculateBassinStats, computeDnb, computeCfg, partMentions } from './calculations';
 import { collectDataIssues } from './dataIntegrity';
 
 export async function exportPresentationToPptx(session: SessionData, settings: PresentationSettings = DEFAULT_PRESENTATION_SETTINGS) {
@@ -268,45 +268,23 @@ export async function exportPresentationToPptx(session: SessionData, settings: P
   slide4.addText('La Réussite par les Mentions au Brevet Pro', { x: 1.0, y: 1.2, fontSize: 26, bold: true, color: 'ffffff' });
   slide4.addText(`${stats.dnb.totalMentions} mentions décernées sur le réseau (${stats.dnb.tauxMoyenMentions}% des admis)`, { x: 1.0, y: 1.8, fontSize: 14, color: '94a3b8' });
 
-  // 3 colonnes Mentions
-  slide4.addShape(pptx.ShapeType.roundRect, {
-    x: 1.0,
-    y: 2.6,
-    w: 3.3,
-    h: 3.5,
-    fill: { color: '1e293b' },
-    line: { color: '10b981', width: 2 },
-    rectRadius: 0.15,
+  // Quatre catégories exclusives : chaque part est calculée sur les mentions.
+  const categories = [
+    { titre: 'MENTION ASSEZ BIEN', nombre: stats.dnb.mentionsAB, couleur: '34d399' },
+    { titre: 'MENTION BIEN', nombre: stats.dnb.mentionsB, couleur: '60a5fa' },
+    { titre: 'MENTION TRÈS BIEN', nombre: stats.dnb.mentionsTB, couleur: 'fbbf24' },
+    { titre: 'TRÈS BIEN AVEC FÉLICITATIONS DU JURY', nombre: stats.dnb.mentionsTBF, couleur: 'c084fc' },
+  ];
+  categories.forEach(({ titre, nombre, couleur }, index) => {
+    const x = 0.65 + index * 3.15;
+    slide4.addShape(pptx.ShapeType.roundRect, {
+      x, y: 2.6, w: 2.6, h: 3.5,
+      fill: { color: '1e293b' }, line: { color: couleur, width: 2 }, rectRadius: 0.15,
+    });
+    slide4.addText(titre, { x: x + 0.12, y: 2.85, w: 2.36, h: 0.6, fontSize: 11, bold: true, color: couleur, align: 'center' });
+    slide4.addText(String(nombre), { x: x + 0.12, y: 3.6, w: 2.36, h: 0.9, fontSize: 46, bold: true, color: couleur, align: 'center' });
+    slide4.addText(`${partMentions(nombre, stats.dnb.totalMentions)}% des mentions`, { x: x + 0.12, y: 4.8, w: 2.36, fontSize: 13, color: 'cbd5e1', align: 'center' });
   });
-  slide4.addText('MENTION ASSEZ BIEN', { x: 1.2, y: 2.9, fontSize: 14, bold: true, color: '34d399', align: 'center', w: 2.9 });
-  slide4.addText(`${stats.dnb.mentionsAB}`, { x: 1.2, y: 3.6, fontSize: 52, bold: true, color: '34d399', align: 'center', w: 2.9 });
-  slide4.addText('Élèves ayant solidement validé les objectifs du socle commun', { x: 1.2, y: 4.8, fontSize: 11, color: '94a3b8', align: 'center', w: 2.9 });
-
-  slide4.addShape(pptx.ShapeType.roundRect, {
-    x: 4.8,
-    y: 2.6,
-    w: 3.3,
-    h: 3.5,
-    fill: { color: '1e293b' },
-    line: { color: '3b82f6', width: 2 },
-    rectRadius: 0.15,
-  });
-  slide4.addText('MENTION BIEN', { x: 5.0, y: 2.9, fontSize: 14, bold: true, color: '60a5fa', align: 'center', w: 2.9 });
-  slide4.addText(`${stats.dnb.mentionsB}`, { x: 5.0, y: 3.6, fontSize: 52, bold: true, color: '60a5fa', align: 'center', w: 2.9 });
-  slide4.addText('Très bon niveau de maîtrise des attendus de fin de cycle 4', { x: 5.0, y: 4.8, fontSize: 11, color: '94a3b8', align: 'center', w: 2.9 });
-
-  slide4.addShape(pptx.ShapeType.roundRect, {
-    x: 8.6,
-    y: 2.6,
-    w: 3.3,
-    h: 3.5,
-    fill: { color: '1e293b' },
-    line: { color: 'f59e0b', width: 2 },
-    rectRadius: 0.15,
-  });
-  slide4.addText('MENTION TRÈS BIEN', { x: 8.8, y: 2.9, fontSize: 14, bold: true, color: 'fbbf24', align: 'center', w: 2.9 });
-  slide4.addText(`${stats.dnb.mentionsTB}`, { x: 8.8, y: 3.6, fontSize: 52, bold: true, color: 'fbbf24', align: 'center', w: 2.9 });
-  slide4.addText('Parcours d’excellence et engagement exemplaire en SEGPA', { x: 8.8, y: 4.8, fontSize: 11, color: '94a3b8', align: 'center', w: 2.9 });
 
   // --------------------------------------------------------------------------
   // SLIDE 5 : CFG Détail
@@ -383,7 +361,7 @@ export async function exportPresentationToPptx(session: SessionData, settings: P
     { text: `Sur les ${stats.dnbRenseignes} établissement(s) renseigné(s), ${stats.dnb.inscrits} élèves sur ${stats.dnbEffectifClasse} sont inscrits au DNB professionnel (${dnbPresentation}) ; le taux de réussite des présents est de ${dnbSuccess}.\n\n`, options: { fontSize: 13, color: 'cbd5e1' } },
 
     { text: '3. La valorisation par les mentions comme levier d’ambition :\n', options: { fontSize: 16, bold: true, color: 'f59e0b' } },
-    { text: `${stats.dnb.totalMentions} mentions décernées dont ${stats.dnb.mentionsTB} mentions Très Bien, constituant un tremplin remarquable pour l'estime de soi et la réussite dans la voie professionnelle.`, options: { fontSize: 13, color: 'cbd5e1' } },
+    { text: `${stats.dnb.totalMentions} mentions décernées dont ${stats.dnb.mentionsTB} Très Bien et ${stats.dnb.mentionsTBF} Très Bien avec félicitations du jury, constituant un tremplin pour l'estime de soi et la réussite dans la voie professionnelle.`, options: { fontSize: 13, color: 'cbd5e1' } },
   ], {
     x: 1.4,
     y: 2.3,

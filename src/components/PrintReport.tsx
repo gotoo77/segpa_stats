@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Printer, FileText, Sun, Moon, Eye } from 'lucide-react';
 import { SessionData } from '../types';
-import { calculateBassinStats, computeDnb, computeCfg } from '../utils/calculations';
+import { calculateBassinStats, computeDnb, computeCfg, partMentions } from '../utils/calculations';
 import { collectDataIssues } from '../utils/dataIntegrity';
 
 interface PrintReportProps {
@@ -198,7 +198,10 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
               {stats.dnb.totalMentions}
             </span>
             <span className={`block text-[11px] font-medium ${isPaper ? 'text-slate-600' : 'text-slate-400'}`}>
-              {stats.dnb.mentionsAB} AB • {stats.dnb.mentionsB} B • {stats.dnb.mentionsTB} TB
+              {stats.dnb.mentionsAB} AB • {stats.dnb.mentionsB} B • {stats.dnb.mentionsTB} TB • {stats.dnb.mentionsTBF} TBF
+            </span>
+            <span className={`block text-[11px] ${isPaper ? 'text-slate-600' : 'text-slate-400'}`}>
+              Part des mentions : AB {partMentions(stats.dnb.mentionsAB, stats.dnb.totalMentions)}% • B {partMentions(stats.dnb.mentionsB, stats.dnb.totalMentions)}% • TB {partMentions(stats.dnb.mentionsTB, stats.dnb.totalMentions)}% • TBF {partMentions(stats.dnb.mentionsTBF, stats.dnb.totalMentions)}%
             </span>
           </div>
         </div>
@@ -238,6 +241,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
                   <th className="p-2 text-center border-r border-inherit">AB</th>
                   <th className="p-2 text-center border-r border-inherit">B</th>
                   <th className="p-2 text-center border-r border-inherit">TB</th>
+                   <th className="p-2 text-center border-r border-inherit" title="Très Bien avec félicitations du jury">TBF</th>
                   <th className="p-2 text-center border-r border-inherit">% / Inscrits</th>
                   <th className="p-2 text-center font-black">% / Présents</th>
                 </tr>
@@ -293,6 +297,9 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
                       <td className={`p-2 text-center border-r border-inherit font-semibold ${isPaper ? 'text-slate-900' : 'text-slate-200'}`}>
                         {est.dnbComplete === false ? 'N.R.' : (est.dnb.mentions?.tb || 0)}
                       </td>
+                       <td className={`p-2 text-center border-r border-inherit font-semibold ${isPaper ? 'text-slate-900' : 'text-slate-200'}`}>
+                         {est.dnbComplete === false ? 'N.R.' : (est.dnb.mentions?.tbf || 0)}
+                       </td>
                       <td className={`p-2 text-center border-r border-inherit font-bold ${isPaper ? 'text-blue-900' : 'text-blue-300'}`}>
                         {est.dnbComplete === false ? 'N.R.' : comp.tauxInscrits + '%'}
                       </td>
@@ -326,6 +333,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ session }) => {
                   <td className="p-2 text-center border-r border-inherit">{stats.dnb.mentionsAB}</td>
                   <td className="p-2 text-center border-r border-inherit">{stats.dnb.mentionsB}</td>
                   <td className="p-2 text-center border-r border-inherit">{stats.dnb.mentionsTB}</td>
+                   <td className="p-2 text-center border-r border-inherit">{stats.dnb.mentionsTBF}</td>
                   <td className={`p-2 text-center border-r border-inherit ${isPaper ? 'text-blue-950' : 'text-blue-300'}`}>
                     {stats.dnbRenseignes ? stats.dnb.tauxMoyenInscrits + '%' : 'N.R.'}
                   </td>

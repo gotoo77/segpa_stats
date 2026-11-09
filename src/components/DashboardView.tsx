@@ -23,7 +23,7 @@ import {
   Palette
 } from 'lucide-react';
 import { SessionData, COLLEGE_PALETTE } from '../types';
-import { calculateBassinStats, computeDnb, computeCfg } from '../utils/calculations';
+import { calculateBassinStats, computeDnb, computeCfg, partMentions } from '../utils/calculations';
 import { collectDataIssues } from '../utils/dataIntegrity';
 
 ChartJS.register(
@@ -205,6 +205,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
         borderRadius: 2,
       },
       {
+        label: 'Très Bien avec félicitations du jury (TBF)',
+        data: establishments.map((e) => e.dnbComplete === false ? 0 : (e.dnb.mentions?.tbf || 0)),
+        backgroundColor: '#a855f7',
+        borderRadius: 2,
+      },
+      {
         label: 'Admis Sans Mention',
         data: establishments.map((e) => e.dnbComplete === false ? 0 : computeDnb(e.dnb, e.effectifClasse).sansMention),
         backgroundColor: isDark ? '#64748b' : '#94a3b8',
@@ -238,16 +244,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
 
   // 6. Donut Global Mentions Bassin
   const donutMentionsData = {
-    labels: ['Assez Bien', 'Bien', 'Très Bien', 'Sans Mention'],
+    labels: ['Assez Bien', 'Bien', 'Très Bien', 'Très Bien avec félicitations du jury', 'Sans Mention'],
     datasets: [
       {
         data: [
           stats.dnb.mentionsAB,
           stats.dnb.mentionsB,
           stats.dnb.mentionsTB,
+          stats.dnb.mentionsTBF,
           stats.dnb.sansMention,
         ],
-        backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', isDark ? '#64748b' : '#94a3b8'],
+        backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#a855f7', isDark ? '#64748b' : '#94a3b8'],
         borderColor: isDark ? '#0f172a' : '#ffffff',
         borderWidth: 3,
       },
@@ -433,7 +440,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-2">
             <span><strong>{stats.dnb.totalMentions}</strong> mentions</span>
-            <span className="text-amber-700 dark:text-amber-400 font-medium">{stats.dnb.mentionsAB} AB • {stats.dnb.mentionsB} B • {stats.dnb.mentionsTB} TB</span>
+            <span className="text-amber-700 dark:text-amber-400 font-medium">{stats.dnb.mentionsAB} AB • {stats.dnb.mentionsB} B • {stats.dnb.mentionsTB} TB • {stats.dnb.mentionsTBF} TBF</span>
+          </div>
+          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+            Part des mentions : AB {partMentions(stats.dnb.mentionsAB, stats.dnb.totalMentions)}% • B {partMentions(stats.dnb.mentionsB, stats.dnb.totalMentions)}% • TB {partMentions(stats.dnb.mentionsTB, stats.dnb.totalMentions)}% • TBF {partMentions(stats.dnb.mentionsTBF, stats.dnb.totalMentions)}%
           </div>
         </div>
       </div>
@@ -530,7 +540,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
           <div className="flex items-center justify-between mb-4">
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-slate-900 dark:text-white">Détail des mentions DNB Pro (AB, B, TB)</h3>
+                <h3 className="font-bold text-slate-900 dark:text-white">Détail des mentions DNB Pro (AB, B, TB, TBF)</h3>
                 <span className="text-[11px] bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 font-semibold px-2 py-0.5 rounded-full">
                   {stats.dnb.totalMentions} mentions au total
                 </span>

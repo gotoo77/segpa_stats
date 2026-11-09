@@ -9,6 +9,7 @@ Elle fonctionne dans un navigateur, avec une interface React/TypeScript et un **
 ## Fonctionnalités disponibles
 
 - Saisie des effectifs et des résultats DNB professionnel / CFG par établissement.
+- Quatre mentions DNB : Assez Bien, Bien, Très Bien et Très Bien avec félicitations du jury (TBF). Pourcentage de chaque catégorie parmi les mentions dans le bilan.
 - Contrôles des incohérences : inscrits, présents, admis, refusés et mentions.
 - Distinction entre un examen **non renseigné (N.R.)** et un vrai résultat à **0 %**.
 - Bassins géographiques configurables, couleurs par collège et filtres.

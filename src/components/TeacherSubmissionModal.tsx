@@ -33,6 +33,7 @@ export const TeacherSubmissionModal: React.FC<TeacherSubmissionModalProps> = ({
   const [dnbAB, setDnbAB] = useState(3);
   const [dnbB, setDnbB] = useState(2);
   const [dnbTB, setDnbTB] = useState(1);
+  const [dnbTBF, setDnbTBF] = useState(0);
 
   // CFG
   const [cfgInscrits, setCfgInscrits] = useState(14);
@@ -67,7 +68,7 @@ export const TeacherSubmissionModal: React.FC<TeacherSubmissionModalProps> = ({
         inscrits: dnbInscrits,
         admis: dnbAdmis,
         refuses: dnbRefuses,
-        mentions: { ab: dnbAB, b: dnbB, tb: dnbTB },
+        mentions: { ab: dnbAB, b: dnbB, tb: dnbTB, tbf: dnbTBF },
       },
       cfg: {
         inscrits: cfgInscrits,
@@ -210,9 +211,9 @@ export const TeacherSubmissionModal: React.FC<TeacherSubmissionModalProps> = ({
 
             <div className="pt-2 border-t border-blue-200/60 dark:border-blue-800">
               <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                Mentions : (AB • B • TB)
+                Mentions : (AB • B • TB • TBF)
               </span>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
                   <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-1 rounded">AB</span>
                   <input
@@ -245,6 +246,12 @@ export const TeacherSubmissionModal: React.FC<TeacherSubmissionModalProps> = ({
                     onChange={(e) => setDnbTB(parseInt(e.target.value) || 0)}
                     className="w-full text-center font-bold bg-transparent text-slate-900 dark:text-white"
                   />
+                </div>
+                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <span className="text-[10px] font-bold text-purple-800 dark:text-purple-300 bg-purple-100 dark:bg-purple-950 px-1 rounded">TBF</span>
+                  <input type="number" min="0" aria-label="Mention Très Bien avec félicitations du jury"
+                    value={dnbTBF} onChange={(e) => setDnbTBF(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="w-full text-center font-bold bg-transparent text-slate-900 dark:text-white" />
                 </div>
               </div>
             </div>

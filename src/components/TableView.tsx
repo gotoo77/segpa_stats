@@ -67,7 +67,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
       effectifClasse: 14,
       dnbComplete: false,
       cfgComplete: false,
-      dnb: { inscrits: 0, admis: 0, refuses: 0, mentions: { ab: 0, b: 0, tb: 0 } },
+      dnb: { inscrits: 0, admis: 0, refuses: 0, mentions: { ab: 0, b: 0, tb: 0, tbf: 0 } },
       cfg: { inscrits: 14, admis: 0, refuses: 0 },
     };
     setSession((prev) => ({
@@ -193,7 +193,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
                   <th scope="col" className="py-3 px-3 text-center w-24">CANDIDATS<br />REFUSÉS</th>
                   <th scope="col" className="py-3 px-4 text-center min-w-[200px]">
                     MENTIONS
-                    <span className="block text-[9px] font-normal lowercase text-slate-500 dark:text-slate-400">(AB • B • TB)</span>
+                    <span className="block text-[9px] font-normal lowercase text-slate-500 dark:text-slate-400">(AB • B • TB • TBF)</span>
                   </th>
                   <th scope="col" className="py-3 px-3 text-center w-28 bg-blue-50/70 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 border-x border-slate-200 dark:border-slate-700">
                     POURCENTAGE<br />ÉLÈVES INSCRITS
@@ -304,7 +304,7 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
                         />
                       </td>
 
-                      {/* Mentions (AB, B, TB) */}
+                      {/* Mentions (AB, B, TB, TBF) */}
                       <td className="py-2.5 px-3 text-center">
                         <div className="inline-flex items-center justify-center gap-1.5 bg-slate-50 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
                           <div className="flex items-center gap-1" title="Mention Assez Bien">
@@ -339,6 +339,13 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
                               onChange={(e) => handleUpdate(est.id, ['dnb', 'mentions', 'tb'], parseInt(e.target.value) || 0)}
                               className="w-9 text-center text-xs font-semibold bg-white dark:bg-slate-700 dark:text-white border border-slate-300 dark:border-slate-600 rounded py-0.5"
                             />
+                          </div>
+                          <div className="flex items-center gap-1" title="Mention Très Bien avec félicitations du jury">
+                            <span className="text-[10px] font-bold text-purple-800 dark:text-purple-300 bg-purple-100 dark:bg-purple-950 px-1 rounded">TBF</span>
+                            <input type="number" min="0" aria-label={`Mentions Très Bien avec félicitations du jury pour ${est.name}`}
+                              value={est.dnb.mentions?.tbf || 0}
+                              onChange={(e) => handleUpdate(est.id, ['dnb', 'mentions', 'tbf'], parseInt(e.target.value) || 0)}
+                              className="w-9 text-center text-xs font-semibold bg-white dark:bg-slate-700 dark:text-white border border-slate-300 dark:border-slate-600 rounded py-0.5" />
                           </div>
                         </div>
                         <div className="text-[10px] text-slate-400 mt-0.5">
@@ -410,7 +417,8 @@ export const TableView: React.FC<TableViewProps> = ({ session, setSession, onEdi
                   <td className="py-3 px-3 text-center text-xs">
                     <span className="text-emerald-300">{bassinStats.dnb.mentionsAB} AB</span> •{' '}
                     <span className="text-blue-300">{bassinStats.dnb.mentionsB} B</span> •{' '}
-                    <span className="text-amber-300">{bassinStats.dnb.mentionsTB} TB</span>
+                    <span className="text-amber-300">{bassinStats.dnb.mentionsTB} TB</span> •{' '}
+                     <span className="text-purple-300">{bassinStats.dnb.mentionsTBF} TBF</span>
                     <span className="block text-[10px] text-slate-300">({bassinStats.dnb.totalMentions} mentions au total)</span>
                   </td>
                   <td className="py-3 px-3 text-center bg-blue-900 text-blue-100 text-sm font-extrabold border-x border-slate-700">
