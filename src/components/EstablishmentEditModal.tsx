@@ -228,7 +228,7 @@ export const EstablishmentEditModal: React.FC<EstablishmentEditModalProps> = ({
               <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px] block mb-2">
                 Détail des mentions obtenues :
               </span>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
                   <span className="px-2 py-1 bg-emerald-100 text-emerald-800 font-bold rounded-lg text-xs">AB</span>
                   <div className="flex-1">
@@ -286,6 +286,18 @@ export const EstablishmentEditModal: React.FC<EstablishmentEditModalProps> = ({
                       })}
                       className="w-full font-bold text-slate-900 dark:text-white border-b border-slate-300 dark:border-slate-600 focus:outline-hidden"
                     />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <span className="px-2 py-1 bg-purple-100 text-purple-800 font-bold rounded-lg text-xs">TBF</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="block text-[10px] text-slate-500 dark:text-slate-300">TB avec félicitations du jury</span>
+                    <input type="number" min="0" aria-label="Très Bien avec félicitations du jury"
+                      value={data.dnb.mentions?.tbf || 0}
+                      onChange={(e) => setData({ ...data, dnb: { ...data.dnb,
+                        mentions: { ...data.dnb.mentions, tbf: Math.max(0, parseInt(e.target.value) || 0) },
+                      } })}
+                      className="w-full font-bold text-slate-900 dark:text-white border-b border-slate-300 dark:border-slate-600 focus:outline-hidden" />
                   </div>
                 </div>
               </div>
