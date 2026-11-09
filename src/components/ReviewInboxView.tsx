@@ -152,7 +152,7 @@ export const ReviewInboxView: React.FC<ReviewInboxViewProps> = ({
         inscrits: pick.dnbIns,
         admis: pick.dnbAdm,
         refuses: pick.dnbRef,
-        mentions: { ab: 3, b: 2, tb: 1 },
+        mentions: { ab: 3, b: 2, tb: 1, tbf: 0 },
       },
       cfg: {
         inscrits: pick.eff,
@@ -462,6 +462,16 @@ export const ReviewInboxView: React.FC<ReviewInboxViewProps> = ({
                           }}
                           className="w-8 text-center font-bold bg-transparent text-slate-900 dark:text-white"
                         />
+                      </div>
+                      <div className="flex items-center gap-1 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                        <span className="text-[10px] font-bold text-purple-700 dark:text-purple-400">TBF:</span>
+                        <input type="number" min="0" aria-label="Mention Très Bien avec félicitations du jury"
+                          value={activeSub.dnb.mentions?.tbf || 0}
+                          onChange={(e) => {
+                            const val = Math.max(0, parseInt(e.target.value) || 0);
+                            setEditingSub({ ...activeSub, dnb: { ...activeSub.dnb, mentions: { ...activeSub.dnb.mentions, tbf: val } } });
+                          }}
+                          className="w-8 text-center font-bold bg-transparent text-slate-900 dark:text-white" />
                       </div>
                     </div>
                   </div>
