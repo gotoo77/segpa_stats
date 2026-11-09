@@ -8,13 +8,14 @@ export function computeDnb(data: DnbData, effectifClasse: number = 0): ComputedD
   const ab = Number(data.mentions?.ab) || 0;
   const b = Number(data.mentions?.b) || 0;
   const tb = Number(data.mentions?.tb) || 0;
+  const tbf = Number(data.mentions?.tbf) || 0;
 
   // Présents = soit spécifié explicitement, soit la somme des admis + refusés
   const presents = data.presents !== undefined 
     ? Number(data.presents) 
     : (admis + refuses > 0 ? admis + refuses : inscrits);
 
-  const totalMentions = ab + b + tb;
+  const totalMentions = ab + b + tb + tbf;
   const sansMention = Math.max(0, admis - totalMentions);
   const absents = Math.max(0, inscrits - presents);
 
@@ -28,7 +29,7 @@ export function computeDnb(data: DnbData, effectifClasse: number = 0): ComputedD
   if (effectif > 0 && inscrits > effectif) {
     errors.push(`Inscrits (${inscrits}) > Effectif classe (${effectif})`);
   }
-  for (const [label, value] of Object.entries({ effectif, inscrits, presents, admis, refuses, ab, b, tb })) {
+  for (const [label, value] of Object.entries({ effectif, inscrits, presents, admis, refuses, ab, b, tb, tbf })) {
     if (!Number.isInteger(value) || value < 0) errors.push(`${label} doit être un entier positif ou nul`);
   }
   if (effectif === 0 && inscrits > 0) errors.push('Effectif de classe manquant');
@@ -53,6 +54,11 @@ export function computeDnb(data: DnbData, effectifClasse: number = 0): ComputedD
     tauxMentions: Number(tauxMentions.toFixed(1)),
     errors,
   };
+}
+
+/** Part d'une catégorie parmi l'ensemble des mentions, zéro si aucune mention. */
+export function partMentions(nombre: number, totalMentions: number): number {
+  return totalMentions > 0 ? Number(((nombre / totalMentions) * 100).toFixed(1)) : 0;
 }
 
 export function computeCfg(data: CfgData, effectifClasse: number = 0): ComputedCfg {
@@ -109,6 +115,7 @@ export function calculateBassinStats(establishments: Establishment[]): BassinSta
   let dnbAB = 0;
   let dnbB = 0;
   let dnbTB = 0;
+  let dnbTBF = 0;
 
   let cfgInscrits = 0;
   let cfgPresents = 0;
@@ -130,6 +137,7 @@ export function calculateBassinStats(establishments: Establishment[]): BassinSta
       dnbAB += Number(e.dnb.mentions?.ab) || 0;
       dnbB += Number(e.dnb.mentions?.b) || 0;
       dnbTB += Number(e.dnb.mentions?.tb) || 0;
+      dnbTBF += Number(e.dnb.mentions?.tbf) || 0;
     }
     if (e.cfgComplete !== false) {
       cfgRenseignes++;
@@ -142,7 +150,7 @@ export function calculateBassinStats(establishments: Establishment[]): BassinSta
     }
   });
 
-  const dnbTotalMentions = dnbAB + dnbB + dnbTB;
+  const dnbTotalMentions = dnbAB + dnbB + dnbTB + dnbTBF;
   const dnbSansMention = Math.max(0, dnbAdmis - dnbTotalMentions);
 
   return {
@@ -162,6 +170,7 @@ export function calculateBassinStats(establishments: Establishment[]): BassinSta
       mentionsAB: dnbAB,
       mentionsB: dnbB,
       mentionsTB: dnbTB,
+      mentionsTBF: dnbTBF,
       totalMentions: dnbTotalMentions,
       sansMention: dnbSansMention,
       tauxMoyenInscrits: dnbInscrits > 0 ? Number(((dnbAdmis / dnbInscrits) * 100).toFixed(1)) : 0,
