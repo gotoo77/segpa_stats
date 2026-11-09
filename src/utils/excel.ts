@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { Establishment, SessionData } from '../types';
-import { computeDnb, computeCfg } from './calculations';
+import { computeDnb, computeCfg, partMentions } from './calculations';
 
 export function exportSessionToExcel(session: SessionData) {
   const wb = createSessionWorkbook(session);
@@ -18,7 +18,7 @@ export function createSessionWorkbook(session: SessionData): XLSX.WorkBook {
     DNB_Inscrits: e.dnb.inscrits, DNB_Presents: e.dnb.presents ?? '',
     DNB_Admis: e.dnb.admis, DNB_Refuses: e.dnb.refuses,
     DNB_Mention_AB: e.dnb.mentions.ab, DNB_Mention_B: e.dnb.mentions.b,
-    DNB_Mention_TB: e.dnb.mentions.tb,
+    DNB_Mention_TB: e.dnb.mentions.tb, DNB_Mention_TBF: e.dnb.mentions.tbf ?? 0,
     CFG_Inscrits: e.cfg.inscrits, CFG_Presents: e.cfg.presents ?? '',
     CFG_Admis: e.cfg.admis, CFG_Refuses: e.cfg.refuses,
   }));
@@ -38,6 +38,11 @@ export function createSessionWorkbook(session: SessionData): XLSX.WorkBook {
       'Mention Assez Bien': e.dnbComplete === false ? 'N.R.' : e.dnb.mentions.ab,
       'Mention Bien': e.dnbComplete === false ? 'N.R.' : e.dnb.mentions.b,
       'Mention Très Bien': e.dnbComplete === false ? 'N.R.' : e.dnb.mentions.tb,
+      'Mention Très Bien avec félicitations du jury': e.dnbComplete === false ? 'N.R.' : (e.dnb.mentions.tbf ?? 0),
+      '% AB / Mentions': e.dnbComplete === false ? 'N.R.' : `${partMentions(e.dnb.mentions.ab, c.totalMentions)}%`,
+      '% B / Mentions': e.dnbComplete === false ? 'N.R.' : `${partMentions(e.dnb.mentions.b, c.totalMentions)}%`,
+      '% TB / Mentions': e.dnbComplete === false ? 'N.R.' : `${partMentions(e.dnb.mentions.tb, c.totalMentions)}%`,
+      '% TBF / Mentions': e.dnbComplete === false ? 'N.R.' : `${partMentions(e.dnb.mentions.tbf ?? 0, c.totalMentions)}%`,
       'Total Mentions': e.dnbComplete === false ? 'N.R.' : c.totalMentions,
       'Sans Mention': e.dnbComplete === false ? 'N.R.' : c.sansMention,
       '% Présentation DNB (/ Classe)': e.dnbComplete === false ? 'N.R.' : `${c.tauxPresentation}%`,
@@ -194,6 +199,8 @@ export function parseWorkbook(workbook: XLSX.WorkBook, defaultBassin = 'Douaisis
     const effectif = numeric(row, ['Effectif_Classe', 'Effectif Classe 3e', 'Effectif Classe', 'Effectif'],
       numeric(cfgRow, ['CFG_Inscrits', 'Candidats Inscrits'], 0, line + ' CFG inscrits'), line + ' effectif classe');
     const dnbPresents = optionalNumber(row, ['DNB_Presents'], line + ' DNB présents');
+    // Colonne facultative pour conserver la compatibilité avec les anciens classeurs.
+    const dnbTbf = optionalNumber(row, ['DNB_Mention_TBF', 'Mention Très Bien avec félicitations du jury', 'TBF'], line + ' mention TBF');
     const statusDnb = String(pick(row, ['DNB_Renseigne']) ?? 'OUI').trim().toUpperCase();
     const statusCfg = String(pick(row, ['CFG_Renseigne']) ?? 'OUI').trim().toUpperCase();
     if (!['OUI', 'NON'].includes(statusDnb) || !['OUI', 'NON'].includes(statusCfg))
@@ -230,6 +237,7 @@ export function parseWorkbook(workbook: XLSX.WorkBook, defaultBassin = 'Douaisis
         ab: numeric(row, ['DNB_Mention_AB', 'Mention Assez Bien', 'AB'], 0, line + ' mention AB'),
         b: numeric(row, ['DNB_Mention_B', 'Mention Bien', 'B'], 0, line + ' mention B'),
         tb: numeric(row, ['DNB_Mention_TB', 'Mention Très Bien', 'TB'], 0, line + ' mention TB'),
+        ...(dnbTbf ? { tbf: dnbTbf } : {}),
       },
     };
     const cfg = {
