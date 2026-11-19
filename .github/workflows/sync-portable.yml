@@ -28,7 +28,11 @@ jobs:
       - name: Install Playwright for browser smoke checks
         run: |
           npm install --no-save --package-lock=false @playwright/test@1.56.1
-      - name: Test React and portable HTML in Chromium
+      - name: Test React and portable HTML in Chromium and Firefox
+        env:
+          # The Playwright container runs as root, but GitHub sets HOME to /github/home (owned by pwuser).
+          # Firefox refuses to launch when HOME is not owned by the current user.
+          HOME: /root
         run: npx playwright test
       - name: Upload browser failure artifacts
         if: always()
