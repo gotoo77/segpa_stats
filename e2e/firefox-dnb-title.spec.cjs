@@ -26,6 +26,8 @@ for (const [label, url, slug] of [
     });
     expect(clip).toEqual({ position: 'absolute', overflow: 'hidden' });
 
+    // elementFromPoint() travaille dans la zone visible : amener d'abord le titre à l'écran.
+    await heading.scrollIntoViewIfNeeded();
     // Le caption ne doit pas intercepter les points situés sur le titre.
     const headingUnobscured = await heading.evaluate((node) => {
       const rect = node.getBoundingClientRect();
