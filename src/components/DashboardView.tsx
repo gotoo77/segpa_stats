@@ -564,26 +564,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
           <div className="sr-only">
             <table>
               <caption>Données comparatives DNB par établissement</caption>
-            <thead>
-              <tr>
-                <th scope="col">Établissement</th>
-                <th scope="col">Inscription DNB</th>
-                <th scope="col">Réussite DNB</th>
-              </tr>
-            </thead>
-            <tbody>
-              {establishments.map((e, index) => {
-                const inscription = dnbInscriptionReussiteData.datasets[0].data[index];
-                const reussite = dnbInscriptionReussiteData.datasets[1].data[index];
-                return (
-                  <tr key={e.id}>
-                    <th scope="row">{e.name}</th>
-                    <td>{inscription === null ? 'N.R.' : `${inscription}%`}</td>
-                    <td>{reussite === null ? 'N.R.' : `${reussite}%`}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
+              <thead>
+                <tr>
+                  <th scope="col">Établissement</th>
+                  <th scope="col">Inscription DNB</th>
+                  <th scope="col">Réussite DNB</th>
+                </tr>
+              </thead>
+              <tbody>
+                {establishments.map((e, index) => {
+                  const inscription = dnbInscriptionReussiteData.datasets[0].data[index];
+                  const reussite = dnbInscriptionReussiteData.datasets[1].data[index];
+                  return (
+                    <tr key={e.id}>
+                      <th scope="row">{e.name}</th>
+                      <td>{inscription === null ? 'N.R.' : `${inscription}%`}</td>
+                      <td>{reussite === null ? 'N.R.' : `${reussite}%`}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
             </table>
           </div>
         </div>
