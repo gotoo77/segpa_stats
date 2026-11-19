@@ -239,8 +239,11 @@ for (const [label, url] of [
 
     const slug = label.startsWith('React') ? 'vite' : 'portable';
     fs.mkdirSync('test-results', { recursive: true });
+    // Chart.js anime les barres : une capture avant la fin afficherait des taux erronés.
+    await page.waitForTimeout(1200);
     await chart.screenshot({ path: 'test-results/dnb-comparatif-' + slug + '-clair.png' });
     await page.getByRole('button', { name: 'Passer en mode sombre' }).click();
+    await page.waitForTimeout(1200);
     await chart.screenshot({ path: 'test-results/dnb-comparatif-' + slug + '-sombre.png' });
     await page.getByRole('button', { name: 'Passer en mode clair' }).click();
 
