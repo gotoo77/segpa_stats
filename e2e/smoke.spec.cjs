@@ -224,38 +224,72 @@ for (const [label, url] of [
   test(label + ': graphique DNB inscription et réussite et export PNG', async ({ page }) => {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
+    await page.emulateMedia({ colorScheme: 'light' });
     await page.goto(url);
     await expect(page.getByRole('heading', {
       name: 'DNB Pro : inscription et réussite par établissement',
     })).toBeVisible();
 
     const chart = page.getByRole('img', {
-      name: 'Deux barres côte à côte par établissement : taux d\'inscription DNB et taux de réussite DNB',
+      name: "Deux barres côte à côte par établissement : taux d'inscription DNB et taux de réussite DNB",
     });
+    const table = page.getByRole('table', { name: 'Données comparatives DNB par établissement' });
     await expect(chart.locator('canvas')).toBeVisible();
+    await expect(table.getByRole('row', { name: /Collège Dutilleul/ }).getByRole('cell')).toHaveText(['82.4%', '85.7%']);
+
+    const slug = label.startsWith('React') ? 'vite' : 'portable';
+    fs.mkdirSync('test-results', { recursive: true });
+    await chart.screenshot({ path: 'test-results/dnb-comparatif-' + slug + '-clair.png' });
+    await page.getByRole('button', { name: 'Passer en mode sombre' }).click();
+    await chart.screenshot({ path: 'test-results/dnb-comparatif-' + slug + '-sombre.png' });
+    await page.getByRole('button', { name: 'Passer en mode clair' }).click();
+
     const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', {
-      name: 'Télécharger l\'image PNG du comparatif inscription et réussite DNB',
+      name: "Télécharger l'image PNG du comparatif inscription et réussite DNB",
     }).click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe('Graphique_Inscription_Reussite_DNB_Session_2026.png');
 
-    // Vérifier aussi le rendu avec un collège non renseigné et aucun candidat présent.
+    // Quatre cas déterministes : deux taux différents, vraie réussite à 0 %,
+    // zéro candidat présent et DNB non renseigné (qui ne doivent pas être tracés à 0 %).
     await page.evaluate(() => {
       const key = 'statsegpa_sessions_v1';
       const sessions = JSON.parse(localStorage.getItem(key));
       const schools = sessions['2026'].establishments.filter(e => e.bassin === 'Douaisis');
-      if (schools.length < 2) throw new Error('Jeu de test : deux collèges nécessaires');
-      schools[0].dnbComplete = false;
-      schools[1].dnbComplete = true;
+      if (schools.length < 4) throw new Error('Jeu de test : quatre collèges nécessaires');
+      schools[0].effectifClasse = 20;
+      schools[0].dnb = {
+        inscrits: 10, presents: 8, admis: 6, refuses: 2,
+        mentions: { ab: 0, b: 0, tb: 0 },
+      };
+      schools[1].effectifClasse = 10;
       schools[1].dnb = {
+        inscrits: 5, presents: 5, admis: 0, refuses: 5,
+        mentions: { ab: 0, b: 0, tb: 0 },
+      };
+      schools[2].effectifClasse = 10;
+      schools[2].dnb = {
         inscrits: 0, presents: 0, admis: 0, refuses: 0,
         mentions: { ab: 0, b: 0, tb: 0 },
       };
+      schools[3].dnbComplete = false;
       localStorage.setItem(key, JSON.stringify(sessions));
     });
     await page.reload();
     await expect(chart.locator('canvas')).toBeVisible();
+
+    // Le tableau accessible lit directement les deux datasets du graphique.
+    const checks = [
+      ['Collège Dutilleul', '50%', '75%'],
+      ['Collège Cremaillel', '50%', '0%'],
+      ['Collège Richtbeurg', '0%', 'N.R.'],
+      ['Collège Simone Veil', 'N.R.', 'N.R.'],
+    ];
+    for (const [school, registration, success] of checks) {
+      const row = table.getByRole('row', { name: new RegExp(school) });
+      await expect(row.getByRole('cell')).toHaveText([registration, success]);
+    }
     expect(errors).toEqual([]);
   });
 }
