@@ -57,6 +57,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
   const cfgChartRef = useRef<any>(null);
   const mentionsChartRef = useRef<any>(null);
   const presentationRef = useRef<any>(null);
+  const dnbInscriptionReussiteRef = useRef<any>(null);
   const comparisonChartRef = useRef<any>(null);
   const globalDonutRef = useRef<any>(null);
 
@@ -178,6 +179,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
         pointRadius: 0,
         fill: false,
         order: 1,
+      },
+    ],
+  };
+
+  // Comparatif des deux indicateurs DNB, sur des dénominateurs différents.
+  // Un examen non renseigné ou un dénominateur nul ne doit pas apparaître comme un taux à 0 %.
+  const dnbInscriptionReussiteData = {
+    labels,
+    datasets: [
+      {
+        label: 'Inscription DNB (% effectif 3e SEGPA)',
+        data: establishments.map((e) =>
+          e.dnbComplete === false || e.effectifClasse <= 0
+            ? null
+            : computeDnb(e.dnb, e.effectifClasse).tauxPresentation
+        ),
+        backgroundColor: 'rgba(99, 102, 241, 0.85)',
+        borderColor: '#4f46e5',
+        borderWidth: 1.5,
+        borderRadius: 4,
+      },
+      {
+        label: 'Réussite DNB (% candidats présents)',
+        data: establishments.map((e) => {
+          if (e.dnbComplete === false) return null;
+          const result = computeDnb(e.dnb, e.effectifClasse);
+          return result.presents > 0 ? result.tauxPresents : null;
+        }),
+        backgroundColor: 'rgba(20, 184, 166, 0.85)',
+        borderColor: '#0d9488',
+        borderWidth: 1.5,
+        borderRadius: 4,
       },
     ],
   };
@@ -496,6 +529,59 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ session, isDark = 
           <div className="h-72 w-full">
             <Bar ref={dnbChartRef} data={dnbData as any} options={percentageOptions} />
           </div>
+        </div>
+
+        {/* GRAPHIQUE COMPARATIF : inscription et réussite au DNB Pro */}
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col lg:col-span-2">
+          <div className="flex items-center justify-between mb-4 gap-3">
+            <div>
+              <h3 className="font-bold text-slate-900 dark:text-white">DNB Pro : inscription et réussite par établissement</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Inscription : inscrits / effectif de 3e SEGPA. Réussite : admis / candidats présents.
+                Données non renseignées ou dénominateur nul : aucune barre.
+              </p>
+            </div>
+            <button
+              onClick={() => downloadChartImage(dnbInscriptionReussiteRef, 'Graphique_Inscription_Reussite_DNB')}
+              aria-label="Télécharger l'image PNG du comparatif inscription et réussite DNB"
+              className="shrink-0 flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition border border-slate-200 dark:border-slate-700"
+              title="Télécharger PNG"
+            >
+              <Download className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>PNG HD</span>
+            </button>
+          </div>
+          <div
+            className="h-80 w-full"
+            role="img"
+            aria-label="Deux barres côte à côte par établissement : taux d'inscription DNB et taux de réussite DNB"
+          >
+            <Bar ref={dnbInscriptionReussiteRef} data={dnbInscriptionReussiteData} options={percentageOptions} />
+          </div>
+          {/* Mêmes séries que le graphique, sous forme tabulaire pour l'accessibilité et la vérification des valeurs. */}
+          <table className="sr-only">
+            <caption>Données comparatives DNB par établissement</caption>
+            <thead>
+              <tr>
+                <th scope="col">Établissement</th>
+                <th scope="col">Inscription DNB</th>
+                <th scope="col">Réussite DNB</th>
+              </tr>
+            </thead>
+            <tbody>
+              {establishments.map((e, index) => {
+                const inscription = dnbInscriptionReussiteData.datasets[0].data[index];
+                const reussite = dnbInscriptionReussiteData.datasets[1].data[index];
+                return (
+                  <tr key={e.id}>
+                    <th scope="row">{e.name}</th>
+                    <td>{inscription === null ? 'N.R.' : `${inscription}%`}</td>
+                    <td>{reussite === null ? 'N.R.' : `${reussite}%`}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
 
         {/* GRAPHIQUE 3 : CFG par Collège */}
