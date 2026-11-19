@@ -216,3 +216,46 @@ for (const [label, url] of [
     expect(stored).toEqual({ dnbAdmis: 987, cfgAdmis: 986 });
   });
 }
+
+for (const [label, url] of [
+  ['React compilé', 'http://127.0.0.1:4173'],
+  ['HTML portable', 'http://127.0.0.1:4174'],
+]) {
+  test(label + ': graphique DNB inscription et réussite et export PNG', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.goto(url);
+    await expect(page.getByRole('heading', {
+      name: 'DNB Pro : inscription et réussite par établissement',
+    })).toBeVisible();
+
+    const chart = page.getByRole('img', {
+      name: 'Deux barres côte à côte par établissement : taux d\'inscription DNB et taux de réussite DNB',
+    });
+    await expect(chart.locator('canvas')).toBeVisible();
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', {
+      name: 'Télécharger l\'image PNG du comparatif inscription et réussite DNB',
+    }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe('Graphique_Inscription_Reussite_DNB_Session_2026.png');
+
+    // Vérifier aussi le rendu avec un collège non renseigné et aucun candidat présent.
+    await page.evaluate(() => {
+      const key = 'statsegpa_sessions_v1';
+      const sessions = JSON.parse(localStorage.getItem(key));
+      const schools = sessions['2026'].establishments.filter(e => e.bassin === 'Douaisis');
+      if (schools.length < 2) throw new Error('Jeu de test : deux collèges nécessaires');
+      schools[0].dnbComplete = false;
+      schools[1].dnbComplete = true;
+      schools[1].dnb = {
+        inscrits: 0, presents: 0, admis: 0, refuses: 0,
+        mentions: { ab: 0, b: 0, tb: 0 },
+      };
+      localStorage.setItem(key, JSON.stringify(sessions));
+    });
+    await page.reload();
+    await expect(chart.locator('canvas')).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+}
